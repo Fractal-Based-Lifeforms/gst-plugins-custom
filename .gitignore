@@ -1,0 +1,91 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.elf
+*.ko
+*.lo
+*.o
+*.obj
+*.slo
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.dll
+*.dylib
+*.so
+*.so.*
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.a
+*.la
+*.lai
+*.lib
+*.lo
+
+# Executables
+*.app
+*.exe
+*.hex
+*.i*86
+*.out
+*.x86_64
+
+# Linker output
+*.exp
+*.ilk
+*.map
+
+# Debug files
+*.dSYM/
+*.idb
+*.pdb
+*.su
+
+# Kernel Module Compile Results
+*.cmd
+*.mod*
+.tmp_versions/
+Mkfile.old
+Module.symvers
+dkms.conf
+modules.order
+
+# CMake files
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+*cmake-build-debug/
+*cmake-build-release/
+
+# CUDA files
+*.i
+*.ii
+*.gpu
+*.ptx
+*.cubin
+*.fatbin
+
+# IDE files
+.idea/*
+
+# clangd files
+.clangd/*
+
+# OS files
+*.DS_STORE

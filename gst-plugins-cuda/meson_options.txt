@@ -1,0 +1,25 @@
+# Feature options for optional deps in plugins
+option('wayland', type : 'feature', value : 'disabled', description : 'Wayland plugin/library, support in the Vulkan plugin')
+option('x11', type : 'feature', value : 'disabled', description : 'X11 support in Vulkan, GL and rfb plugins')
+
+# Feature options for plugins that need external deps
+option('cuda', type : 'feature', value : 'auto', description : 'NVIDIA GPU-centric plugin')
+option('gl', type : 'feature', value : 'disabled', description : 'GStreamer OpenGL integration support (used by various plugins)')
+option('nvcodec', type : 'feature', value : 'auto', description : 'NVIDIA GPU codec plugin')
+
+# Common feature options
+# option('examples', type : 'feature', value : 'disabled', yield : true)
+option('tests', type : 'feature', value : 'auto', yield : true)
+option('gobject-cast-checks', type : 'feature', value : 'auto', yield : true,
+       description: 'Enable run-time GObject cast checks (auto = enabled for development, disabled for stable releases)')
+option('glib-asserts', type : 'feature', value : 'enabled', yield : true,
+       description: 'Enable GLib assertion (auto = enabled for development, disabled for stable releases)')
+option('glib-checks', type : 'feature', value : 'enabled', yield : true,
+       description: 'Enable GLib checks such as API guards (auto = enabled for development, disabled for stable releases)')
+option('extra-checks', type : 'feature', value : 'enabled', yield : true, description : 'Enable extra runtime checks')
+
+# Common options
+option('package-name', type : 'string', yield : true,
+       description : 'package name to use in plugins')
+option('package-origin', type : 'string', value : 'Unknown package origin', yield : true,
+       description : 'package origin URL to use in plugins')

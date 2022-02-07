@@ -1,0 +1,7 @@
+**
+!*.txt
+!*.h
+!*.cpp
+!*.sh
+!*.md
+!gst-plugins-cuda/
