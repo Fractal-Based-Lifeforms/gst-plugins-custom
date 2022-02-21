@@ -79,7 +79,7 @@ enum
     "framerate = " GST_VIDEO_FPS_RANGE ", " \
     "stream-format = (string) byte-stream, " \
     "alignment = (string) au, " \
-    "profile = (string) { main, high, high-4:4:4, baseline }"
+    "profile = (string) { main, high, high-4:4:4, baseline, constrained-baseline }"
 
 static gboolean gst_nv_h264_enc_open (GstVideoEncoder * enc);
 static gboolean gst_nv_h264_enc_close (GstVideoEncoder * enc);

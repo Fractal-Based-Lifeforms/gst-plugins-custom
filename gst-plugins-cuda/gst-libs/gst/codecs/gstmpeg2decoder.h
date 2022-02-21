@@ -78,7 +78,7 @@ struct _GstMpeg2DecoderClass
    *
    * Since: 1.20
    */
-  gboolean      (*new_sequence)     (GstMpeg2Decoder * decoder,
+  GstFlowReturn (*new_sequence)     (GstMpeg2Decoder * decoder,
                                      const GstMpegVideoSequenceHdr * seq,
                                      const GstMpegVideoSequenceExt * seq_ext,
                                      const GstMpegVideoSequenceDisplayExt * seq_display_ext,
@@ -96,7 +96,7 @@ struct _GstMpeg2DecoderClass
    *
    * Since: 1.20
    */
-  gboolean      (*new_picture)      (GstMpeg2Decoder * decoder,
+  GstFlowReturn (*new_picture)      (GstMpeg2Decoder * decoder,
                                      GstVideoCodecFrame * frame,
                                      GstMpeg2Picture * picture);
 
@@ -112,7 +112,7 @@ struct _GstMpeg2DecoderClass
    *
    * Since: 1.20
    */
-  gboolean      (*new_field_picture)  (GstMpeg2Decoder * decoder,
+  GstFlowReturn (*new_field_picture)  (GstMpeg2Decoder * decoder,
                                        const GstMpeg2Picture * first_field,
                                        GstMpeg2Picture * second_field);
 
@@ -129,7 +129,7 @@ struct _GstMpeg2DecoderClass
    *
    * Since: 1.20
    */
-  gboolean      (*start_picture)    (GstMpeg2Decoder * decoder,
+  GstFlowReturn (*start_picture)    (GstMpeg2Decoder * decoder,
                                      GstMpeg2Picture * picture,
                                      GstMpeg2Slice * slice,
                                      GstMpeg2Picture * prev_picture,
@@ -146,7 +146,7 @@ struct _GstMpeg2DecoderClass
    *
    * Since: 1.20
    */
-  gboolean      (*decode_slice)     (GstMpeg2Decoder * decoder,
+  GstFlowReturn (*decode_slice)     (GstMpeg2Decoder * decoder,
                                      GstMpeg2Picture * picture,
                                      GstMpeg2Slice * slice);
 
@@ -160,7 +160,7 @@ struct _GstMpeg2DecoderClass
    *
    * Since: 1.20
    */
-  gboolean      (*end_picture)      (GstMpeg2Decoder * decoder,
+  GstFlowReturn (*end_picture)      (GstMpeg2Decoder * decoder,
                                      GstMpeg2Picture * picture);
 
   /**
@@ -177,6 +177,21 @@ struct _GstMpeg2DecoderClass
   GstFlowReturn (*output_picture)   (GstMpeg2Decoder * decoder,
                                      GstVideoCodecFrame * frame,
                                      GstMpeg2Picture * picture);
+
+  /**
+   * GstMpeg2DecoderClass::get_preferred_output_delay:
+   * @decoder: a #GstMpeg2Decoder
+   * @is_live: whether upstream is live or not
+   *
+   * Optional. Called by baseclass to query whether delaying output is
+   * preferred by subclass or not.
+   *
+   * Returns: the number of perferred delayed output frames
+   *
+   * Since: 1.20
+   */
+  guint (*get_preferred_output_delay) (GstMpeg2Decoder * decoder,
+                                       gboolean is_live);
 
   /*< private >*/
   gpointer padding[GST_PADDING_LARGE];
