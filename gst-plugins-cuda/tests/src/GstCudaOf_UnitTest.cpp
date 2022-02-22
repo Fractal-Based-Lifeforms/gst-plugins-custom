@@ -5,9 +5,10 @@
 #include <stdexcept>
 #include <thread>
 
-#include "gst/cuda/of/gstmetaopticalflow.h"
 #include <Poco/Path.h>
 #include <gst/app/gstappsink.h>
+#include <gst/cuda/of/gstcudaofalgorithm.h>
+#include <gst/cuda/of/gstmetaopticalflow.h>
 #include <gst/gst.h>
 #include <gst/gstbus.h>
 #include <gst/gstcaps.h>
@@ -27,7 +28,6 @@
 
 #include "gstcudaof.h"
 
-using ::testing::Combine;
 using ::testing::Values;
 
 namespace
@@ -380,8 +380,8 @@ namespace
          * - J.O.
          */
         {
-            GEnumClass *klass = G_ENUM_CLASS(g_type_class_peek_static(
-                g_type_from_name("GstCudaOfAlgorithm")));
+            GEnumClass *klass
+                = G_ENUM_CLASS(g_type_class_ref(GST_TYPE_CUDA_OF_ALGORITHM));
 
             switch(this->algorithm_type)
             {
@@ -395,6 +395,8 @@ namespace
                         "supported or should not be tested here.");
                     break;
             }
+
+            g_type_class_unref(klass);
 
             Poco::Path first_frame_file_path
                 = Poco::Path(default_frames_path, "sample_1080p_h264.0001.raw")
@@ -652,8 +654,8 @@ namespace
          * - J.O.
          */
         {
-            GEnumClass *klass = (GEnumClass *)(g_type_class_peek_static(
-                g_type_from_name("GstCudaOfAlgorithm")));
+            GEnumClass *klass
+                = G_ENUM_CLASS(g_type_class_ref(GST_TYPE_CUDA_OF_ALGORITHM));
 
             switch(this->algorithm_type)
             {
@@ -671,6 +673,8 @@ namespace
                         "supported or should not be tested here.");
                     break;
             }
+
+            g_type_class_unref(klass);
 
             Poco::Path first_frame_file_path
                 = Poco::Path(default_frames_path, "sample_1080p_h264.0001.raw")

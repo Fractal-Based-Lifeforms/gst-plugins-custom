@@ -13,9 +13,17 @@ if not get_option('tests').disabled() and gtest_dep.found()
   libpthread = cc.find_library('pthread', required: true)
   libdl = cc.find_library('dl', required: true)
   librt = cc.find_library('rt', required: true)
+  
+  unittest_sources = [
+  'src/CUDAFeaturesCell_UnitTest.cpp',
+  'src/CUDAFeaturesMatrix_UnitTest.cpp',
+  'src/GstCudaFeatureExtractor_UnitTest.cpp',
+  'src/GstCudaOf_UnitTest.cpp',
+  'src/UnitTests.cpp',
+  ]
 
-  executable('cudaof_test',
-    ['src/GstCudaOf_UnitTest.cpp', 'src/UnitTests.cpp'],
+  test_executable = executable('gst-plugins-custom_unit-test',
+    unittest_sources,
     c_args : gst_plugins_cuda_args + extra_c_args,
     cpp_args : gst_plugins_cuda_args + extra_cpp_args,
     include_directories: [configinc, '../sys/nvcodec/nvcodec', '../sys/nvcodec/cudaof'],
@@ -23,21 +31,5 @@ if not get_option('tests').disabled() and gtest_dep.found()
     install : false
   )
 
-  executable('cudafeaturescell_test',
-    ['src/CUDAFeaturesCell_UnitTest.cpp'],
-    c_args : gst_plugins_cuda_args + extra_c_args,
-    cpp_args : gst_plugins_cuda_args + extra_cpp_args,
-    include_directories: [configinc],
-    dependencies: [glib_dep, gtest_main_dep, gst_cuda_dep],
-    install : false
-  )
-
-  executable('cudafeaturesmatrix_test',
-    ['src/CUDAFeaturesMatrix_UnitTest.cpp'],
-    c_args : gst_plugins_cuda_args + extra_c_args,
-    cpp_args : gst_plugins_cuda_args + extra_cpp_args,
-    include_directories: [configinc],
-    dependencies: [glib_dep, gtest_main_dep, gst_cuda_dep],
-    install : false
-  )
+  test('gst-plugins-custom_unit-test', test_executable)
 endif
