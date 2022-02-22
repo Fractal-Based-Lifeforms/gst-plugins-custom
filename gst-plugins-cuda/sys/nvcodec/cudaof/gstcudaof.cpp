@@ -63,11 +63,11 @@ static const gboolean default_nvidia_enable_cost_buffer = FALSE;
 static const gboolean default_nvidia_enable_external_hints = FALSE;
 static const gboolean default_nvidia_enable_temporal_hints = FALSE;
 static const gint default_nvidia_hint_vector_grid_size
-    = cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_HINT_VECTOR_GRID_SIZE_4;
+    = OPTICAL_FLOW_HINT_VECTOR_GRID_SIZE_4;
 static const gint default_nvidia_output_vector_grid_size
-    = cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_OUTPUT_VECTOR_GRID_SIZE_4;
+    = OPTICAL_FLOW_OUTPUT_VECTOR_GRID_SIZE_4;
 static const gint default_nvidia_performance_preset
-    = cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_PERF_LEVEL_FAST;
+    = OPTICAL_FLOW_PERFORMANCE_PRESET_FAST;
 
 static const gint default_optical_flow_algorithm
     = OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0;
