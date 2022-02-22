@@ -9,31 +9,6 @@ G_BEGIN_DECLS
 
 // clang-format off
 /**
- * /brief An enumeration containing the list of CUDA-based optical flow
- * algorithms as supported by OpenCV.
- */
-// clang-format on
-typedef enum _GstCudaOfAlgorithm
-{
-    /**
-     * \brief The OpenCV implementation of the optical flow algorithm developed
-     * by Gunnar Farneback.
-     */
-    OPTICAL_FLOW_ALGORITHM_FARNEBACK,
-    /**
-     * \brief The OpenCV implementation of v1 of the optical flow algorithm
-     * developed by NVIDIA as made available via their Optical Flow SDK.
-     */
-    OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0,
-    /**
-     * \brief The OpenCV implementation of v2 of the optical flow algorithm
-     * developed by NVIDIA as made available via their Optical Flow SDK.
-     */
-    OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0
-} GstCudaOfAlgorithm;
-
-// clang-format off
-/**
  * \brief Type creation/retrieval function for the GstCudaOf object type.
  *
  * \details This function creates and registers the GstCudaOf object type for

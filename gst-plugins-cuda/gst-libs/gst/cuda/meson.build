@@ -1,4 +1,8 @@
 gst_cuda_sources = files([
+  'of/gstcudaofalgorithm.cpp',
+  'of/gstcudaofhintvectorgridsize.cpp',
+  'of/gstcudaofoutputvectorgridsize.cpp',
+  'of/gstcudaofperformancepreset.cpp',
   'of/gstmetaopticalflow.cpp',
   'nvcodec/cuda-converter.c',
   'nvcodec/gstcudabasefilter.c',
@@ -16,7 +20,6 @@ gst_cuda_sources = files([
 ])
 
 gst_cuda_featureextractor_headers = files([
-  'of/gstmetaopticalflow.h',
   'featureextractor/cudafeaturescell.h',
   'featureextractor/cudafeaturesmatrix.h',
   'featureextractor/gstmetaalgorithmfeatures.h',
@@ -34,10 +37,11 @@ gst_cuda_nvcodec_headers = files([
   'nvcodec/gstnvrtcloader.h',
 ])
 gst_cuda_of_headers = files([
+  'of/gstcudaofalgorithm.h',
+  'of/gstcudaofhintvectorgridsize.h',
+  'of/gstcudaofoutputvectorgridsize.h',
+  'of/gstcudaofperformancepreset.h',
   'of/gstmetaopticalflow.h',
-  'featureextractor/cudafeaturescell.h',
-  'featureextractor/cudafeaturesmatrix.h',
-  'featureextractor/gstmetaalgorithmfeatures.h',
 ])
 
 gst_cuda_stub_headers = files([

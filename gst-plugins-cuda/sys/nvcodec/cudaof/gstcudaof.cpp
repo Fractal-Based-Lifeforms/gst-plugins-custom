@@ -9,6 +9,10 @@
 #include <glib-object.h>
 #include <glibconfig.h>
 #include <gst/base/gstbasetransform.h>
+#include <gst/cuda/of/gstcudaofalgorithm.h>
+#include <gst/cuda/of/gstcudaofhintvectorgridsize.h>
+#include <gst/cuda/of/gstcudaofoutputvectorgridsize.h>
+#include <gst/cuda/of/gstcudaofperformancepreset.h>
 #include <gst/cuda/of/gstmetaopticalflow.h>
 #include <gst/gst.h>
 #include <gst/gstbuffer.h>
@@ -707,23 +711,6 @@ class GstCudaException : public std::logic_error
 
 // clang-format off
 /**
- * \brief Type creation/retrieval function for the GstCudaOfAlgorithm enum type.
- *
- * \details This function creates and registers the GstCudaOfAlgorithm enum type
- * for the first invocation. The GType instance for the GstCudaOfAlgorithm enum
- * type is then returned.
- *
- * \details For subsequent invocations, the GType instance for the
- * GstCudaOfAlgorithm enum type is returned immediately.
- *
- * \returns A GType instance representing the type information for the
- * GstCudaOfAlgorithm enum type.
- */
-// clang-format on
-static GType gst_cuda_of_algorithm_get_type();
-
-// clang-format off
-/**
  * \brief Calculates optical flow between the two given buffers and returns the
  * result as a 2-channel 2D matrix hosted on the GPU.
  *
@@ -851,60 +838,6 @@ gst_cuda_of_init_algorithm(GstCudaOf *self, GstCudaOfAlgorithm algorithm_type);
 
 // clang-format off
 /**
- * \brief Type creation/retrieval function for the GstCudaOfHintVectorGridSize
- * enum type.
- *
- * \details This function creates and registers the GstCudaOfHintVectorGridSize
- * enum type for the first invocation. The GType instance for the
- * GstCudaOfHintVectorGridSize enum type is then returned.
- *
- * \details For subsequent invocations, the GType instance for the
- * GstCudaOfHintVectorGridSize enum type is returned immediately.
- *
- * \returns A GType instance representing the type information for the
- * GstCudaOfHintVectorGridSize enum type.
- */
-// clang-format on
-static GType gst_cuda_of_hint_vector_grid_size_get_type();
-
-// clang-format off
-/**
- * \brief Type creation/retrieval function for the GstCudaOfOutputVectorGridSize
- * enum type.
- *
- * \details This function creates and registers the GstCudaOfOutputVectorGridSize
- * enum type for the first invocation. The GType instance for the
- * GstCudaOfOutputVectorGridSize enum type is then returned.
- *
- * \details For subsequent invocations, the GType instance for the
- * GstCudaOfOutputVectorGridSize enum type is returned immediately.
- *
- * \returns A GType instance representing the type information for the
- * GstCudaOfOutputVectorGridSize enum type.
- */
-// clang-format on
-static GType gst_cuda_of_output_vector_grid_size_get_type();
-
-// clang-format off
-/**
- * \brief Type creation/retrieval function for the GstCudaOfPerformancePreset
- * enum type.
- *
- * \details This function creates and registers the GstCudaOfPerformancePreset
- * enum type for the first invocation. The GType instance for the
- * GstCudaOfPerformancePreset enum type is then returned.
- *
- * \details For subsequent invocations, the GType instance for the
- * GstCudaOfPerformancePreset enum type is returned immediately.
- *
- * \returns A GType instance representing the type information for the
- * GstCudaOfPerformancePreset enum type.
- */
-// clang-format on
-static GType gst_cuda_of_performance_preset_get_type();
-
-// clang-format off
-/**
  * \brief Property setter for instances of the GstCudaOf GObject.
  *
  * \details Sets properties on an instance of the GstCudaOf GObject.
@@ -1019,41 +952,6 @@ G_DEFINE_TYPE_WITH_PRIVATE(GstCudaOf, gst_cuda_of, GST_TYPE_CUDA_BASE_TRANSFORM)
 // clang-format off
 /**************************** Function Definitions ****************************/
 // clang-format on
-
-static GType gst_cuda_of_algorithm_get_type()
-{
-    static GType algorithm_type = 0;
-    /*
-     * I'm just limiting the available algorithm types for now. When I have
-     * time, I might be able to expand the list of available CUDA-based optical
-     * flow algorithms so that we're not limited to NVIDIA Optical Flow.
-     *
-     * I'm also adding Farneback Optical Flow in order to be able to run on
-     * Pascal-architecture GPUs as a means of testing, and as an alternative if
-     * issues are identified with the NVIDIA optical flow algorithms.
-     *
-     * - J.O
-     */
-    static const GEnumValue algorithms[]
-        = {{OPTICAL_FLOW_ALGORITHM_FARNEBACK,
-            "Farneback CUDA Optical Flow Algorithm",
-            "farneback"},
-           {OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0,
-            "NVIDIA v1 Hardware Optical Flow Algorithm",
-            "nvidia-1.0"},
-           {OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0,
-            "NVIDIA v2 Hardware Optical Flow Algorithm",
-            "nvidia-2.0"},
-           {0, NULL, NULL}};
-
-    if(!algorithm_type)
-    {
-        algorithm_type
-            = g_enum_register_static("GstCudaOfAlgorithm", algorithms);
-    }
-
-    return algorithm_type;
-}
 
 static cv::cuda::GpuMat gst_cuda_of_calculate_optical_flow(
     GstCudaOf *self,
@@ -1659,81 +1557,6 @@ gst_cuda_of_init_algorithm(GstCudaOf *self, GstCudaOfAlgorithm algorithm_type)
         default:
             break;
     }
-}
-
-static GType gst_cuda_of_hint_vector_grid_size_get_type()
-{
-    static GType hint_vector_grid_size_type = 0;
-    static const GEnumValue hint_vector_grid_sizes[]
-        = {{cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_HINT_VECTOR_GRID_SIZE_1,
-            "1x1 Grid Size",
-            "1x1"},
-           {cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_HINT_VECTOR_GRID_SIZE_2,
-            "2x2 Grid Size",
-            "2x2"},
-           {cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_HINT_VECTOR_GRID_SIZE_4,
-            "4x4 Grid Size",
-            "4x4"},
-           {cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_HINT_VECTOR_GRID_SIZE_8,
-            "8x8 Grid Size",
-            "8x8"},
-           {0, NULL, NULL}};
-
-    if(!hint_vector_grid_size_type)
-    {
-        hint_vector_grid_size_type = g_enum_register_static(
-            "GstCudaOfHintVectorGridSize", hint_vector_grid_sizes);
-    }
-
-    return hint_vector_grid_size_type;
-}
-
-static GType gst_cuda_of_output_vector_grid_size_get_type()
-{
-    static GType output_vector_grid_size_type = 0;
-    static const GEnumValue output_vector_grid_sizes[]
-        = {{cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_OUTPUT_VECTOR_GRID_SIZE_1,
-            "1x1 Grid Size",
-            "1x1"},
-           {cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_OUTPUT_VECTOR_GRID_SIZE_2,
-            "2x2 Grid Size",
-            "2x2"},
-           {cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_OUTPUT_VECTOR_GRID_SIZE_4,
-            "4x4 Grid Size",
-            "4x4"},
-           {0, NULL, NULL}};
-
-    if(!output_vector_grid_size_type)
-    {
-        output_vector_grid_size_type = g_enum_register_static(
-            "GstCudaOfOutputVectorGridSize", output_vector_grid_sizes);
-    }
-
-    return output_vector_grid_size_type;
-}
-
-static GType gst_cuda_of_performance_preset_get_type()
-{
-    static GType performance_preset_type = 0;
-    static const GEnumValue performance_presets[]
-        = {{cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_PERF_LEVEL_SLOW,
-            "Slow performance preset",
-            "slow"},
-           {cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_PERF_LEVEL_MEDIUM,
-            "Medium performance preset",
-            "medium"},
-           {cv::cuda::NvidiaOpticalFlow_2_0::NV_OF_PERF_LEVEL_FAST,
-            "Fast performance preset",
-            "fast"},
-           {0, NULL, NULL}};
-
-    if(!performance_preset_type)
-    {
-        performance_preset_type = g_enum_register_static(
-            "GstCudaOfPerformancePreset", performance_presets);
-    }
-
-    return performance_preset_type;
 }
 
 gboolean gst_cuda_of_plugin_init(GstPlugin *plugin)
