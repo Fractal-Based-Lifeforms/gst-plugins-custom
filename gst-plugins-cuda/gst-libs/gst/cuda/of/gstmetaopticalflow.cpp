@@ -1,29 +1,20 @@
-// clang-format off
 /**************************** Includes and Macros *****************************/
-// clang-format on
 
 #include "gstcudacontext.h"
 #include <gst/cuda/of/gstmetaopticalflow.h>
 
-// clang-format off
 /*
  * Just some setup for the GStreamer debug logger.
  *
  * - J.O.
  */
-// clang-format on
 GST_DEBUG_CATEGORY_STATIC(gst_meta_optical_flow_debug);
 #define GST_CAT_DEFAULT gst_meta_optical_flow_debug
 
-// clang-format off
 /************************** Type/Struct Definitions ***************************/
-// clang-format on
 
-// clang-format off
 /*************************** Function Declarations ****************************/
-// clang-format on
 
-// clang-format off
 /**
  * \brief Initialises an instance of the GstMetaOpticalFlow metadata type.
  *
@@ -39,11 +30,9 @@ GST_DEBUG_CATEGORY_STATIC(gst_meta_optical_flow_debug);
  *
  * \returns TRUE under all circumstances.
  */
-// clang-format on
 static gboolean
 gst_meta_optical_flow_init(GstMeta *meta, gpointer params, GstBuffer *buf);
 
-// clang-format off
 /**
  * \brief Cleans up an instance of the GstMetaOpticalFlow metadata type.
  *
@@ -55,10 +44,8 @@ gst_meta_optical_flow_init(GstMeta *meta, gpointer params, GstBuffer *buf);
  * \param[in] buf A pointer to the buffer that the GstMetaOpticalFlow instance
  * is being freed from.
  */
-// clang-format on
 static void gst_meta_optical_flow_free(GstMeta *meta, GstBuffer *buf);
 
-// clang-format off
 /**
  * \brief Performs a transformation function on an instance of the
  * GstMetaOpticalFlow metadata type.
@@ -83,7 +70,6 @@ static void gst_meta_optical_flow_free(GstMeta *meta, GstBuffer *buf);
  * \param[in] data A pointer to a structure containing a list of parameters
  * passed to the transform function.
  */
-// clang-format on
 static gboolean gst_meta_optical_flow_transform(
     GstBuffer *transbuf,
     GstMeta *meta,
@@ -91,17 +77,7 @@ static gboolean gst_meta_optical_flow_transform(
     GQuark type,
     gpointer data);
 
-// clang-format off
-/****************************** Static Variables ******************************/
-// clang-format on
-
-// clang-format off
-/************************** GObject Type Definitions **************************/
-// clang-format on
-
-// clang-format off
 /**************************** Function Definitions ****************************/
-// clang-format on
 
 extern GType gst_meta_optical_flow_api_get_type()
 {
@@ -223,6 +199,4 @@ static gboolean gst_meta_optical_flow_transform(
     return result;
 }
 
-// clang-format off
 /******************************************************************************/
-// clang-format on

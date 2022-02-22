@@ -59,7 +59,6 @@ struct _GstMetaOpticalFlow
      * hosted on the GPU.
      */
     cv::cuda::GpuMat *optical_flow_vectors;
-
 };
 
 /**
