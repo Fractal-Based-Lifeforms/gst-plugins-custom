@@ -11,13 +11,13 @@ extern GType gst_cuda_of_performance_preset_get_type()
 {
     static GType performance_preset_type = 0;
     static const GEnumValue performance_presets[]
-        = {{OPTICAL_FLOW_PERFORMANCE_PRESET_FAST,
+        = {{OPTICAL_FLOW_PERFORMANCE_PRESET_SLOW,
             "Slow performance preset",
             "slow"},
            {OPTICAL_FLOW_PERFORMANCE_PRESET_MEDIUM,
             "Medium performance preset",
             "medium"},
-           {OPTICAL_FLOW_PERFORMANCE_PRESET_SLOW,
+           {OPTICAL_FLOW_PERFORMANCE_PRESET_FAST,
             "Fast performance preset",
             "fast"},
            {0, NULL, NULL}};
