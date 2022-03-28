@@ -76,7 +76,8 @@ static void gst_vp8_decoder_clear_output_frame (GstVp8DecoderOutputFrame *
     output_frame);
 static void gst_vp8_decoder_drain_output_queue (GstVp8Decoder * self,
     guint num, GstFlowReturn * ret);
-
+static GstFlowReturn gst_vp8_decoder_drain_internal (GstVp8Decoder * self,
+    gboolean wait_keyframe);
 
 static void
 gst_vp8_decoder_class_init (GstVp8DecoderClass * klass)
@@ -166,6 +167,14 @@ gst_vp8_decoder_check_codec_change (GstVp8Decoder * self,
 
   if (changed || !priv->had_sequence) {
     GstVp8DecoderClass *klass = GST_VP8_DECODER_GET_CLASS (self);
+
+    /* Drain before new sequence */
+    ret = gst_vp8_decoder_drain_internal (self, FALSE);
+    if (ret != GST_FLOW_OK) {
+      GST_WARNING_OBJECT (self, "Failed to drain pending frames, returned %s",
+          gst_flow_get_name (ret));
+      return ret;
+    }
 
     priv->had_sequence = TRUE;
 
@@ -273,16 +282,27 @@ done:
 }
 
 static GstFlowReturn
-gst_vp8_decoder_finish (GstVideoDecoder * decoder)
+gst_vp8_decoder_drain_internal (GstVp8Decoder * self, gboolean wait_keyframe)
 {
-  GstVp8Decoder *self = GST_VP8_DECODER (decoder);
   GstFlowReturn ret = GST_FLOW_OK;
+  GstVp8DecoderPrivate *priv = self->priv;
 
-  GST_DEBUG_OBJECT (self, "finish");
+  gst_vp8_decoder_drain_output_queue (self, 0, &ret);
+  gst_vp8_picture_clear (&self->last_picture);
+  gst_vp8_picture_clear (&self->golden_ref_picture);
+  gst_vp8_picture_clear (&self->alt_ref_picture);
 
-  gst_vp8_decoder_drain_output_queue (GST_VP8_DECODER (decoder), 0, &ret);
+  priv->wait_keyframe = wait_keyframe;
 
   return ret;
+}
+
+static GstFlowReturn
+gst_vp8_decoder_finish (GstVideoDecoder * decoder)
+{
+  GST_DEBUG_OBJECT (decoder, "finish");
+
+  return gst_vp8_decoder_drain_internal (GST_VP8_DECODER (decoder), TRUE);
 }
 
 static gboolean
@@ -300,15 +320,9 @@ gst_vp8_decoder_flush (GstVideoDecoder * decoder)
 static GstFlowReturn
 gst_vp8_decoder_drain (GstVideoDecoder * decoder)
 {
-  GstVp8Decoder *self = GST_VP8_DECODER (decoder);
-  GstFlowReturn ret = GST_FLOW_OK;
+  GST_DEBUG_OBJECT (decoder, "drain");
 
-  GST_DEBUG_OBJECT (self, "drain");
-
-  gst_vp8_decoder_drain_output_queue (GST_VP8_DECODER (decoder), 0, &ret);
-  gst_vp8_decoder_reset (self);
-
-  return ret;
+  return gst_vp8_decoder_drain_internal (GST_VP8_DECODER (decoder), TRUE);
 }
 
 static void
@@ -348,6 +362,7 @@ gst_vp8_decoder_handle_frame (GstVideoDecoder * decoder,
 
   if (!gst_buffer_map (in_buf, &map, GST_MAP_READ)) {
     GST_ERROR_OBJECT (self, "Cannot map buffer");
+    ret = GST_FLOW_ERROR;
     goto error;
   }
 
@@ -356,6 +371,7 @@ gst_vp8_decoder_handle_frame (GstVideoDecoder * decoder,
 
   if (pres != GST_VP8_PARSER_OK) {
     GST_ERROR_OBJECT (self, "Cannot parser frame header");
+    ret = GST_FLOW_ERROR;
     goto unmap_and_error;
   }
 
@@ -459,12 +475,12 @@ error:
     if (picture)
       gst_vp8_picture_unref (picture);
 
-    if (ret == GST_FLOW_OK)
-      ret = GST_FLOW_ERROR;
+    if (ret == GST_FLOW_ERROR) {
+      GST_VIDEO_DECODER_ERROR (self, 1, STREAM, DECODE,
+          ("Failed to decode data"), (NULL), ret);
+    }
 
     gst_video_decoder_drop_frame (decoder, frame);
-    GST_VIDEO_DECODER_ERROR (self, 1, STREAM, DECODE,
-        ("Failed to decode data"), (NULL), ret);
 
     return ret;
   }
@@ -482,7 +498,7 @@ gst_vp8_decoder_drain_output_queue (GstVp8Decoder * self, guint num,
   while (gst_queue_array_get_length (priv->output_queue) > num) {
     GstVp8DecoderOutputFrame *output_frame = (GstVp8DecoderOutputFrame *)
         gst_queue_array_pop_head_struct (priv->output_queue);
-    /* Output queued fraems whatever the return value is, in order to empty
+    /* Output queued frames whatever the return value is, in order to empty
      * the queue */
     GstFlowReturn flow_ret = klass->output_picture (self,
         output_frame->frame, output_frame->picture);

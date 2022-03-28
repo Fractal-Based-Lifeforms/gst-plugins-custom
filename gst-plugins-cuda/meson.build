@@ -1,5 +1,5 @@
 project('gst-plugins-cuda', 'c', 'cpp',
-  version : '1.19.2',
+  version : '1.20.0',
   meson_version : '>= 0.54',
   default_options : [ 'warning_level=1',
                       'buildtype=debugoptimized' ])

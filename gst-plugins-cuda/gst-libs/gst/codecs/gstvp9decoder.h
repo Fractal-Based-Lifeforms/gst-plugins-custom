@@ -51,6 +51,7 @@ struct _GstVp9Decoder
 
   /*< protected >*/
   GstVideoCodecState * input_state;
+  gboolean parse_compressed_headers;
 
   /*< private >*/
   GstVp9DecoderPrivate *priv;
@@ -65,7 +66,7 @@ struct _GstVp9DecoderClass
   GstVideoDecoderClass parent_class;
 
   /**
-   * GstVp9Decoder::new_sequence:
+   * GstVp9DecoderClass::new_sequence:
    *
    * Notifies subclass of video sequence update such as resolution, bitdepth,
    * profile.
@@ -76,7 +77,7 @@ struct _GstVp9DecoderClass
                                         const GstVp9FrameHeader *frame_hdr);
 
   /**
-   * GstVp9Decoder:new_picture:
+   * GstVp9DecoderClass::new_picture:
    * @decoder: a #GstVp9Decoder
    * @frame: (transfer none): a #GstVideoCodecFrame
    * @picture: (transfer none): a #GstVp9Picture
@@ -92,7 +93,7 @@ struct _GstVp9DecoderClass
                                         GstVp9Picture * picture);
 
   /**
-   * GstVp9Decoder:duplicate_picture:
+   * GstVp9DecoderClass::duplicate_picture:
    * @decoder: a #GstVp9Decoder
    * @frame: (transfer none): a #GstVideoCodecFrame
    * @picture: (transfer none): a #GstVp9Picture to be duplicated
@@ -117,7 +118,7 @@ struct _GstVp9DecoderClass
                                         GstVp9Picture * picture);
 
   /**
-   * GstVp9Decoder:start_picture:
+   * GstVp9DecoderClass::start_picture:
    * @decoder: a #GstVp9Decoder
    * @picture: (transfer none): a #GstVp9Picture
    *
@@ -130,7 +131,7 @@ struct _GstVp9DecoderClass
                                         GstVp9Picture * picture);
 
   /**
-   * GstVp9Decoder:decode_picture:
+   * GstVp9DecoderClass::decode_picture:
    * @decoder: a #GstVp9Decoder
    * @picture: (transfer none): a #GstVp9Picture to decoder
    * @dpb: (transfer none): a #GstVp9Dpb
@@ -145,7 +146,7 @@ struct _GstVp9DecoderClass
                                         GstVp9Dpb * dpb);
 
   /**
-   * GstVp9Decoder::end_picture:
+   * GstVp9DecoderClass::end_picture:
    * @decoder: a #GstVp9Decoder
    * @picture: (transfer none): a #GstVp9Picture
    *
@@ -158,7 +159,7 @@ struct _GstVp9DecoderClass
                                         GstVp9Picture * picture);
 
   /**
-   * GstVp9Decoder:output_picture:
+   * GstVp9DecoderClass::output_picture:
    * @decoder: a #GstVp9Decoder
    * @frame: (transfer full): a #GstVideoCodecFrame
    * @picture: (transfer full): a #GstVp9Picture
@@ -171,6 +172,22 @@ struct _GstVp9DecoderClass
                                         GstVideoCodecFrame * frame,
                                         GstVp9Picture * picture);
 
+  /**
+   * GstVp9DecoderClass::get_preferred_output_delay:
+   * @decoder: a #GstVp9Decoder
+   * @is_live: whether upstream is live or not
+   *
+   * Optional. Retrieve the preferred output delay from child classes.
+   * controls how many frames to delay when calling
+   * GstVp9DecoderClass::output_picture
+   *
+   * Returns: the number of perferred delayed output frame
+   *
+   * Since: 1.20
+   */
+  guint           (*get_preferred_output_delay)   (GstVp9Decoder * decoder,
+                                                   gboolean is_live);
+
   /*< private >*/
   gpointer padding[GST_PADDING_LARGE];
 };
@@ -179,6 +196,10 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstVp9Decoder, gst_object_unref)
 
 GST_CODECS_API
 GType gst_vp9_decoder_get_type (void);
+
+GST_CODECS_API
+void gst_vp9_decoder_set_non_keyframe_format_change_support (GstVp9Decoder * decoder,
+                                                             gboolean support);
 
 G_END_DECLS
 
