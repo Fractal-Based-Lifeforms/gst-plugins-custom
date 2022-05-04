@@ -1,0 +1,50 @@
+FROM ubuntu:jammy
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg2  \
+    && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED7108895311FB59 \
+    && echo deb http://ppa.launchpad.net/jayvdb/experimental/ubuntu jammy main >> /etc/apt/sources.list.d/ppas.list \
+    && apt-get clean \
+    && apt-get autoclean \
+    && rm -rf /var/cache/apt/* \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        bison \
+        cmake \
+        flex \
+        gcc-10 \
+        g++-10 \
+        git \
+        gstreamer1.0-libav \
+        gstreamer1.0-plugins-bad \
+        libffi7 \
+        libffi8 \
+        libglib2.0-dev \
+        libgmock-dev \
+        libgstreamer-plugins-bad1.0-dev \
+        libgstreamer1.0-0 \
+        libgstreamer1.0-dev \
+        libgtest-dev \
+        libopencv-dev \
+        libopencv-contrib-cuda-dev \
+        libpoco-dev \
+        libpocofoundation80 \
+        make \
+        meson \
+        ninja-build \
+        nvidia-cuda-toolkit \
+        pkg-config \
+        python3 \
+        python3-pip \
+        rapidjson-dev \
+    && apt-get clean \
+    && apt-get autoclean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/cache/apt/*
+
+WORKDIR /mnt/workspace

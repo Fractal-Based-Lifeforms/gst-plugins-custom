@@ -1,0 +1,32 @@
+name: Build docker image
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - Dockerfile.jammy
+      - .github/workflows/docker.yml
+  push:
+    paths:
+      - Dockerfile.jammy
+      - .github/workflows/docker.yml
+
+jobs:
+  jammy:
+    name: Build docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clean
+        run: sudo rm -rf gst-plugins-cuda
+
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: |
+          docker build -t gst-build --build-arg UID=$(id -u) - <Dockerfile.jammy
+
+      - name: List images
+        run: docker images
+
+      - name: Run make "build" inside image
+        run: |
+          sudo docker run --rm -v $PWD:/mnt/workspace -t gst-build:latest make
