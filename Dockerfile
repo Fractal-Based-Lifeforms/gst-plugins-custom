@@ -247,7 +247,7 @@ WORKDIR /work
 COPY . /work
 WORKDIR /work/gst-plugins-cuda
 RUN mkdir -p /opt/gstreamer-plugins \
-    && meson build -Dtests=disabled \
+    && meson build -Dtests=disabled -Dfind-nvrtc=enabled \
     && ninja -C build \
     && DESTDIR=/opt/gstreamer-plugins ninja install -C build
 
