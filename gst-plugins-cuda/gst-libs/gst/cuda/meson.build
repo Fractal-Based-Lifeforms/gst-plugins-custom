@@ -86,11 +86,15 @@ if host_machine.system() != 'windows' and get_option('find-nvrtc').enabled()
   )
 
   if found_nvrtc.returncode() == 0
-    nvrtc_path = found_nvrtc.stdout().strip()
-    message('Found NVRTC library at "' + nvrtc_path + '".')
+    nvrtc_paths = found_nvrtc.stdout().strip()
+    message('Found NVRTC library at: ')
 
-    extra_c_args += ['-DNVRTC_LIBPATH="' + nvrtc_path + '"']
-    extra_cpp_args += ['-DNVRTC_LIBPATH="' + nvrtc_path + '"']
+    foreach nvrtc_path : nvrtc_paths.split(':')
+      message('    ' + nvrtc_path)
+    endforeach
+
+    extra_c_args += ['-DNVRTC_LIBPATHS="' + nvrtc_paths + '"']
+    extra_cpp_args += ['-DNVRTC_LIBPATHS="' + nvrtc_paths + '"']
   endif
 endif
 

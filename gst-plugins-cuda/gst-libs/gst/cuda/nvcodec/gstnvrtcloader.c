@@ -102,12 +102,28 @@ gboolean gst_nvrtc_load_library(void)
     if(filename_env)
         module = g_module_open(filename_env, G_MODULE_BIND_LAZY);
 
-#ifdef NVRTC_LIBPATH
+#ifdef NVRTC_LIBPATHS
     if(!module)
     {
-        filename = g_strdup(NVRTC_LIBPATH);
-        fname = filename;
-        module = g_module_open(filename, G_MODULE_BIND_LAZY);
+        gchar **lib_paths = g_strsplit(NVRTC_LIBPATHS, ":", -1);
+
+        for(
+            gchar **current_path = lib_paths;
+            *current_path != NULL;
+            current_path++
+        )
+        {
+            module = g_module_open(*current_path, G_MODULE_BIND_LAZY);
+
+            if(module)
+            {
+                filename = g_strdup(*current_path);
+                fname = filename;
+                break;
+            }
+        }
+
+        g_strfreev(lib_paths);
     }
 #endif
 
