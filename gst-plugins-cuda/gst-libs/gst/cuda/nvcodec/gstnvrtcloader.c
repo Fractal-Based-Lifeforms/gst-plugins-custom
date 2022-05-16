@@ -102,6 +102,15 @@ gboolean gst_nvrtc_load_library(void)
     if(filename_env)
         module = g_module_open(filename_env, G_MODULE_BIND_LAZY);
 
+#ifdef NVRTC_LIBPATH
+    if(!module)
+    {
+        filename = g_strdup(NVRTC_LIBPATH);
+        fname = filename;
+        module = g_module_open(filename, G_MODULE_BIND_LAZY);
+    }
+#endif
+
     if(!module)
     {
 #ifndef G_OS_WIN32
@@ -136,6 +145,8 @@ gboolean gst_nvrtc_load_library(void)
         }
 #endif
     }
+
+    GST_DEBUG("NVRTC library at %s was loaded.", fname);
 
     if(module == NULL)
     {

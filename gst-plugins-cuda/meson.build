@@ -414,6 +414,8 @@ gnome = import('gnome')
 
 presetdir = join_paths(get_option('datadir'), 'gstreamer-' + api_version, 'presets')
 
+find_library_script = find_program('scripts/find-library.py')
+
 subdir('gst-libs')
 subdir('sys')
 subdir('tests')

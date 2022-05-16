@@ -23,3 +23,7 @@ option('package-name', type : 'string', yield : true,
        description : 'package name to use in plugins')
 option('package-origin', type : 'string', value : 'Unknown package origin', yield : true,
        description : 'package origin URL to use in plugins')
+
+# CUDA library options
+option('find-nvrtc', type : 'feature', value : 'disabled',
+       description: 'Enables finding and embedding the NVRTC library path into the GStreamer CUDA library.')

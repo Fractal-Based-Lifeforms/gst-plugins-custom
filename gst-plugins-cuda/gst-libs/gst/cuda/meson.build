@@ -76,6 +76,24 @@ if gstgl_dep.found()
   extra_cpp_args += ['-DHAVE_NVCODEC_GST_GL=1']
 endif
 
+if host_machine.system() != 'windows' and get_option('find-nvrtc').enabled()
+  found_nvrtc = run_command(
+    find_library_script,
+    'nvrtc',
+    '/usr/lib/x86_64-linux-gnu',
+    capture : true,
+    check : true
+  )
+
+  if found_nvrtc.returncode() == 0
+    nvrtc_path = found_nvrtc.stdout().strip()
+    message('Found NVRTC library at "' + nvrtc_path + '".')
+
+    extra_c_args += ['-DNVRTC_LIBPATH="' + nvrtc_path + '"']
+    extra_cpp_args += ['-DNVRTC_LIBPATH="' + nvrtc_path + '"']
+  endif
+endif
+
 gst_cuda_dependencies = [
   gst_dep,
   gstbase_dep,
@@ -86,8 +104,8 @@ gst_cuda_dependencies = [
 
 gst_cuda = library('gstcuda-' + api_version,
   gst_cuda_sources,
-  c_args : gst_plugins_cuda_args,
-  cpp_args : gst_plugins_cuda_args,
+  c_args : gst_plugins_cuda_args + extra_c_args,
+  cpp_args : gst_plugins_cuda_args + extra_cpp_args,
   include_directories : [configinc, libsinc, gst_cuda_incdirs],
   version : libversion,
   soversion : soversion,
