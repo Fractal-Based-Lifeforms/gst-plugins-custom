@@ -17,4 +17,3 @@ if not lib_paths:
     sys.exit(1)
 
 print(":".join([str(lib_path) for lib_path in lib_paths]))
-sys.exit(0)

@@ -162,8 +162,6 @@ gboolean gst_nvrtc_load_library(void)
 #endif
     }
 
-    GST_DEBUG("NVRTC library at %s was loaded.", fname);
-
     if(module == NULL)
     {
         GST_WARNING(
@@ -171,6 +169,8 @@ gboolean gst_nvrtc_load_library(void)
         g_free(filename);
         return FALSE;
     }
+
+    GST_DEBUG("NVRTC library at %s was loaded.", filename);
 
     vtable = &gst_nvrtc_vtable;
 
