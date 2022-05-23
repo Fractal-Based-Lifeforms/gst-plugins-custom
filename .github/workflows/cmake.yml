@@ -1,0 +1,88 @@
+---
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'develop'
+    paths:
+      - .github/workflows/cmake.yml
+  pull_request:
+
+env:
+  NVIDIA_DOCKER_ARGS: --gpus=all --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all
+  DEPENDENCIES_DEBIAN: gstreamer1.0-plugins-bad libglib2.0-dev libgmock-dev libgstreamer-plugins-bad1.0-dev libgstreamer1.0-0 libgstreamer1.0-dev libgtest-dev libopencv-dev libopencv-contrib-cuda-dev libpoco-dev libpocofoundation80 meson ninja-build nvidia-cuda-toolkit rapidjson-dev
+  PRE_COMMAND: |
+    set -ex
+    sudo apt-get update \
+      && DEBIAN_FRONTEND=noninteractive \
+      TZ=Etc/UTC \
+      sudo apt-get install -y --no-install-recommends \
+          ca-certificates \
+          gnupg2 \
+          zlib1g-dev \
+          liblzma-dev \
+          libunwind-dev \
+          sudo \
+          software-properties-common \
+          wget \
+      && sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED7108895311FB59 648ACFD622F3D138 0E98404D386FA1D9 605C66F00D6C9793 \
+      && ls /etc/apt/sources.list.d/ \
+      && echo deb http://ppa.launchpad.net/jayvdb/experimental/ubuntu jammy main | sudo tee -a /etc/apt/sources.list.d/ppas.list \
+      && cat /etc/apt/sources.list \
+      && sudo apt-mark hold zlib1g-dev liblzma-dev libunwind-dev
+
+jobs:
+
+  matrix_prep:
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - id: set-matrix
+      run: |
+        owner=$(echo '${{ github.repository_owner }}')
+        if [ "${ACT}" ]; then
+          matrix='{"runs_on":["ubuntu-22.04"],"compiler":[["gcc","g++"]]}'
+        elif [[ "$owner" == "icetana" ]]; then
+          matrix='{"runs_on":[["self-hosted","linux","x64","v2-build"]],"compiler":[["gcc","g++"]]}'
+        else
+          matrix='{"runs_on":["ubuntu-22.04"],"compiler":[["gcc","g++"]]}'
+        fi
+        echo ::set-output name=matrix::$(echo $matrix)
+
+  build_using_compiler_in_environment:
+    needs: matrix_prep
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      matrix: ${{fromJson(needs.matrix_prep.outputs.matrix)}}
+    env:
+      CC: ${{ matrix.compiler[0] }}
+      CXX: ${{ matrix.compiler[1] }}
+    steps:
+      - name: Install dependencies
+        run: |
+          set -ex
+          bash -c "$PRE_COMMAND"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends $DEPENDENCIES_DEBIAN
+
+      - name: Clean
+        run: sudo rm -rf gst-plugins-cuda
+
+      - uses: actions/checkout@v2
+
+      - name: Build & test
+        run: |
+          set -ex
+          cd gst-plugins-cuda
+          if nvidia-smi; then
+            meson build -Dtests=enabled
+          else
+            meson build
+          fi
+          ninja -C build
+          if nvidia-smi; then
+            ninja test -C build
+          fi
