@@ -1,6 +1,7 @@
 /**************************** Includes and Macros *****************************/
 
-#include "gstcudacontext.h"
+#include <gst/cuda/nvcodec/gstcudacontext.h>
+#include <gst/cuda/of/gstcudaofoutputvectorgridsize.h>
 #include <gst/cuda/of/gstmetaopticalflow.h>
 
 /*
@@ -131,6 +132,8 @@ gst_meta_optical_flow_init(GstMeta *meta, gpointer params, GstBuffer *buf)
     GstMetaOpticalFlow *optical_flow_meta = (GstMetaOpticalFlow *)(meta);
     optical_flow_meta->context = NULL;
     optical_flow_meta->optical_flow_vectors = nullptr;
+    optical_flow_meta->optical_flow_vector_grid_size
+        = OPTICAL_FLOW_OUTPUT_VECTOR_GRID_SIZE_1;
 
     return TRUE;
 }
@@ -190,6 +193,9 @@ static gboolean gst_meta_optical_flow_transform(
                 *(old_optical_flow_meta->optical_flow_vectors));
             gst_cuda_context_pop(NULL);
         }
+
+        new_optical_flow_meta->optical_flow_vector_grid_size
+            = old_optical_flow_meta->optical_flow_vector_grid_size;
     }
     else
     {

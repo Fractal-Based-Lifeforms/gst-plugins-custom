@@ -307,6 +307,12 @@ typedef struct _CUDA2DPitchedArray
      * \brief The height for the allocated 2D memory space in bytes.
      */
     gsize height;
+
+    /**
+     * \brief The size of the data-type for each element within the 2D memory
+     * space.
+     */
+    gsize elem_size;
 } CUDA2DPitchedArray;
 
 /*
@@ -1158,7 +1164,6 @@ static CUDAFeaturesMatrix *gst_cuda_feature_extractor_extract_features(
     GstCudaFeatureExtractor *self,
     const GstMetaOpticalFlow *optical_flow_metadata)
 {
-    GstCudaBaseTransform *filter = GST_CUDA_BASE_TRANSFORM(self);
     GstCudaFeatureExtractorPrivate *self_private
         = gst_cuda_feature_extractor_get_instance_private_typesafe(self);
 
@@ -1166,38 +1171,47 @@ static CUDAFeaturesMatrix *gst_cuda_feature_extractor_extract_features(
 
     const cv::cuda::GpuMat *optical_flow_matrix
         = optical_flow_metadata->optical_flow_vectors;
+    const int optical_flow_vector_grid_size = optical_flow_metadata->optical_flow_vector_grid_size;
 
     const gsize features_matrix_width = self->features_matrix_width;
     const gsize features_matrix_height = self->features_matrix_height;
     const gsize features_matrix_pitch
         = self->features_matrix_width * sizeof(MotionFeatures);
+    const gsize features_matrix_elem_size = sizeof(MotionFeatures);
 
     const gsize optical_flow_matrix_width = optical_flow_matrix->cols;
     const gsize optical_flow_matrix_height = optical_flow_matrix->rows;
     const gsize optical_flow_matrix_pitch = optical_flow_matrix->step;
+    const gsize optical_flow_matrix_elem_size = optical_flow_matrix->elemSize();
 
     const size_t dimensions_multiplier
         = gst_cuda_feature_extractor_calculate_dimensions_multiplier(
-            optical_flow_matrix_width,
-            optical_flow_matrix_height,
+            optical_flow_matrix_width * optical_flow_vector_grid_size,
+            optical_flow_matrix_height * optical_flow_vector_grid_size,
             features_matrix_width,
             features_matrix_height);
 
     CUDA2DPitchedArray gpu_features_matrix = {
         NULL,
         features_matrix_pitch * dimensions_multiplier,
-        features_matrix_width * sizeof(MotionFeatures) * dimensions_multiplier,
-        features_matrix_height * dimensions_multiplier};
+        features_matrix_width * features_matrix_elem_size
+            * dimensions_multiplier,
+        features_matrix_height * dimensions_multiplier,
+        features_matrix_elem_size};
     CUDA2DPitchedArray consolidated_gpu_features_matrix
-        = {NULL,
-           features_matrix_pitch,
-           features_matrix_width * sizeof(MotionFeatures),
-           features_matrix_height};
+        = {
+        NULL,
+        features_matrix_pitch,
+        features_matrix_width * features_matrix_elem_size,
+        features_matrix_height,
+        features_matrix_elem_size};
     CUDA2DPitchedArray gpu_optical_flow_matrix
-        = {optical_flow_matrix->data,
-           optical_flow_matrix_pitch,
-           optical_flow_matrix_width * optical_flow_matrix->elemSize(),
-           optical_flow_matrix_height};
+        = {
+        optical_flow_matrix->data,
+        optical_flow_matrix_pitch,
+        optical_flow_matrix_width * optical_flow_matrix_elem_size,
+        optical_flow_matrix_height,
+        optical_flow_matrix_elem_size};
 
     std::vector<MotionFeatures> host_features_matrix(
         features_matrix_width * features_matrix_height);
@@ -1216,9 +1230,9 @@ static CUDAFeaturesMatrix *gst_cuda_feature_extractor_extract_features(
             = features_matrix_height * dimensions_multiplier;
 
         guint original_block_dimension_x = calculate_dimension(
-            optical_flow_matrix->cols, original_grid_dimension_x);
+            (optical_flow_matrix_width * optical_flow_vector_grid_size), original_grid_dimension_x);
         guint original_block_dimension_y = calculate_dimension(
-            optical_flow_matrix->rows, original_grid_dimension_y);
+            (optical_flow_matrix_height * optical_flow_vector_grid_size), original_grid_dimension_y);
 
         if(!gst_cuda_result(CuMemAllocPitch(
                (CUdeviceptr *)&(gpu_features_matrix.device_ptr),
@@ -1233,6 +1247,7 @@ static CUDAFeaturesMatrix *gst_cuda_feature_extractor_extract_features(
 
         gpointer feature_extractor_kernel_args[]
             = {&gpu_optical_flow_matrix,
+               (gpointer)(&optical_flow_vector_grid_size),
                &gpu_features_thresholds,
                &gpu_features_matrix};
 

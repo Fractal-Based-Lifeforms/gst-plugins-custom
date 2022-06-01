@@ -574,7 +574,6 @@ namespace
             const std::size_t &frame_height,
             const std::uint8_t &num_of_channels)
         {
-            cv::cuda::GpuMat downsampled_output_vectors;
             cv::cuda::GpuMat output_vectors;
 
             cv::cuda::GpuMat first_frame_gpu_mat = this->ExtractFrameFromFile(
@@ -584,25 +583,7 @@ namespace
             this->algorithm->calc(
                 first_frame_gpu_mat,
                 second_frame_gpu_mat,
-                downsampled_output_vectors);
-
-            if(this->algorithm_type == OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0)
-            {
-                std::dynamic_pointer_cast<cv::cuda::NvidiaOpticalFlow_1_0>(
-                    this->algorithm)
-                    ->upSampler(
-                        downsampled_output_vectors,
-                        cv::Size(frame_width, frame_height),
-                        this->algorithm->getGridSize(),
-                        output_vectors);
-            }
-            else if(this->algorithm_type == OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0)
-            {
-                std::dynamic_pointer_cast<cv::cuda::NvidiaOpticalFlow_2_0>(
-                    this->algorithm)
-                    ->convertToFloat(
-                        downsampled_output_vectors, output_vectors);
-            }
+                output_vectors);
 
             return output_vectors;
         }
@@ -777,17 +758,17 @@ namespace
                                     jj++)
                                 {
 
-                                    cv::Vec2f optical_flow_vector
-                                        = optical_flow_vectors.at<cv::Vec2f>(
+                                    cv::Vec2s optical_flow_vector
+                                        = optical_flow_vectors.at<cv::Vec2s>(
                                             ii, jj);
-                                    cv::Vec2f gstcuda_optical_flow_vector
+                                    cv::Vec2s gstcuda_optical_flow_vector
                                         = gstcuda_optical_flow_vectors
-                                              .at<cv::Vec2f>(ii, jj);
+                                              .at<cv::Vec2s>(ii, jj);
 
-                                    EXPECT_FLOAT_EQ(
+                                    EXPECT_EQ(
                                         optical_flow_vector[0],
                                         gstcuda_optical_flow_vector[0]);
-                                    EXPECT_FLOAT_EQ(
+                                    EXPECT_EQ(
                                         optical_flow_vector[1],
                                         gstcuda_optical_flow_vector[1]);
                                 }

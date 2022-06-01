@@ -59,6 +59,17 @@ struct _GstMetaOpticalFlow
      * hosted on the GPU.
      */
     cv::cuda::GpuMat *optical_flow_vectors;
+
+    /**
+     * \brief An integer value representing the vector grid size of the optical
+     * flow values.
+     *
+     * \notes This is required when dealing with some form of sparse optical
+     * flow algorithm - primarily the NVIDIA Optical Flow algorithms - in order
+     * to allow the feature-extractor to properly map optical-flow vectors to
+     * pixels on the frame.
+     */
+    gint optical_flow_vector_grid_size;
 };
 
 /**
