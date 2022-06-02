@@ -1932,8 +1932,32 @@ static GstFlowReturn gst_cuda_of_transform(
                 = new cv::cuda::GpuMat(optical_flow_vectors);
             meta->context
                 = GST_CUDA_CONTEXT(gst_object_ref(self->parent.context));
+
+            switch(self->optical_flow_algorithm)
+            {
+                case OPTICAL_FLOW_ALGORITHM_FARNEBACK:
+                    {
+                        meta->optical_flow_vector_grid_size = 1;
+                    }
+                    break;
+                case OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0:
+                    {
+                        meta->optical_flow_vector_grid_size
+                            = OPTICAL_FLOW_OUTPUT_VECTOR_GRID_SIZE_4;
+                    }
+                    break;
+                case OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0:
+                    {
+                        meta->optical_flow_vector_grid_size
+                            = self->nvidia_output_vector_grid_size;
+                    }
+                    break;
+                default:
+                    break;
+            }
             meta->optical_flow_vector_grid_size
                 = self->nvidia_output_vector_grid_size;
+
             gst_buffer_unref(self_private->prev_buffer);
         }
 
