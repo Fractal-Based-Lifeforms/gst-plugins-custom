@@ -625,18 +625,22 @@ namespace
 
                                     EXPECT_EQ(features_cell.count, count);
                                     EXPECT_EQ(features_cell.pixels, pixels);
-                                    EXPECT_EQ(
+                                    EXPECT_NEAR(
                                         features_cell.x0_to_x1_magnitude,
-                                        x0_to_x1_magnitude);
-                                    EXPECT_EQ(
+                                        x0_to_x1_magnitude,
+                                        10.0f);
+                                    EXPECT_NEAR(
                                         features_cell.x1_to_x0_magnitude,
-                                        x1_to_x0_magnitude);
-                                    EXPECT_EQ(
+                                        x1_to_x0_magnitude,
+                                        10.0f);
+                                    EXPECT_NEAR(
                                         features_cell.y0_to_y1_magnitude,
-                                        y0_to_y1_magnitude);
-                                    EXPECT_EQ(
+                                        y0_to_y1_magnitude,
+                                        10.0f);
+                                    EXPECT_NEAR(
                                         features_cell.y1_to_y0_magnitude,
-                                        y1_to_y0_magnitude);
+                                        y1_to_y0_magnitude,
+                                        10.0f);
                                 }
                             }
                         }
