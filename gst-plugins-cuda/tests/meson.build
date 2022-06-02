@@ -2,12 +2,18 @@ if not get_option('tests').disabled() and gtest_dep.found()
   extra_c_args = [
     '-DGST_USE_UNSTABLE_API',
     '-DROOT_DATA_DIRECTORY="' + meson.current_source_dir() + '/data"',
-    '-DNVCODEC_PLUGIN_PATH="' + meson.current_build_dir() + '/../sys/nvcodec/libgstnvcodec.so"'
+    '-DNVCODEC_PLUGIN_PATH="' + meson.current_build_dir() + '/../sys/nvcodec/libgstnvcodec.so"',
+    '-DGST_CUDA_FEATURE_EXTRACTOR_KERNEL_SOURCE_PATH="'
+      + meson.current_source_dir()
+      + '/../sys/nvcodec/cudafeatureextractor/cudafeatureextractorkernels.cu"'
   ]
   extra_cpp_args = [
     '-DGST_USE_UNSTABLE_API',
     '-DROOT_DATA_DIRECTORY="' + meson.current_source_dir() + '/data"',
-    '-DNVCODEC_PLUGIN_PATH="' + meson.current_build_dir() + '/../sys/nvcodec/libgstnvcodec.so"'
+    '-DNVCODEC_PLUGIN_PATH="' + meson.current_build_dir() + '/../sys/nvcodec/libgstnvcodec.so"',
+    '-DGST_CUDA_FEATURE_EXTRACTOR_KERNEL_SOURCE_PATH="'
+      + meson.current_source_dir()
+      + '/../sys/nvcodec/cudafeatureextractor/cudafeatureextractorkernels.cu"'
   ]
 
   libpthread = cc.find_library('pthread', required: true)

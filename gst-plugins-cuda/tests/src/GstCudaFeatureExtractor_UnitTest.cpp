@@ -37,6 +37,10 @@ namespace
     const Poco::Path default_frames_path
         = Poco::Path(std::string(ROOT_DATA_DIRECTORY) + std::string("/frames/"))
               .absolute();
+    const std::string kernel_source_location
+        = Poco::Path(std::string(GST_CUDA_FEATURE_EXTRACTOR_KERNEL_SOURCE_PATH))
+              .absolute()
+              .toString();
 
     class TestFeatureExtractorPipeline
     {
@@ -204,8 +208,14 @@ namespace
             GstElement *cudafeatureextractor = gst_bin_get_by_name(
                 GST_BIN(this->_pipeline), "cudafeatureextractor0");
 
+            // clang-format off
             g_object_set(
-                GST_OBJECT(cudafeatureextractor), "cuda-device-id", 0, NULL);
+                GST_OBJECT(cudafeatureextractor),
+                "cuda-device-id", 0,
+                "kernel-source-location", kernel_source_location.c_str(),
+                NULL
+            );
+            // clang-format on
 
             gst_object_unref(cudafeatureextractor);
 
