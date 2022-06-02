@@ -971,8 +971,7 @@ static cv::cuda::GpuMat gst_cuda_of_calculate_optical_flow(
     GstCudaOfPrivate *self_private
         = gst_cuda_of_get_instance_private_typesafe(self);
 
-    cv::cuda::GpuMat optical_flow_gpu_mat = cv::cuda::GpuMat(
-        self->parent.in_info.height, self->parent.in_info.width, CV_32FC2);
+    cv::cuda::GpuMat optical_flow_gpu_mat;
 
     current_buffer_cuda_memory
         = gst_cuda_of_get_cuda_memory(self, current_buffer);
@@ -1009,6 +1008,10 @@ static cv::cuda::GpuMat gst_cuda_of_calculate_optical_flow(
             {
                 case OPTICAL_FLOW_ALGORITHM_FARNEBACK:
                     {
+                        optical_flow_gpu_mat = cv::cuda::GpuMat(
+                            self->parent.in_info.height,
+                            self->parent.in_info.width,
+                            CV_32FC2);
                         self_private->algorithms.dense_optical_flow_algorithm
                             ->calc(
                                 prev_buffer_gpu_mat,
@@ -1018,41 +1021,19 @@ static cv::cuda::GpuMat gst_cuda_of_calculate_optical_flow(
                     break;
                 case OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0:
                     {
-                        cv::cuda::GpuMat downsampled_optical_flow_gpu_mat;
                         self_private->algorithms.nvidia_optical_flow_algorithm
                             ->calc(
                                 prev_buffer_gpu_mat,
                                 current_buffer_gpu_mat,
-                                downsampled_optical_flow_gpu_mat);
-                        std::dynamic_pointer_cast<
-                            cv::cuda::NvidiaOpticalFlow_1_0>(
-                            self_private->algorithms
-                                .nvidia_optical_flow_algorithm)
-                            ->upSampler(
-                                downsampled_optical_flow_gpu_mat,
-                                cv::Size(
-                                    self->parent.in_info.width,
-                                    self->parent.in_info.height),
-                                self_private->algorithms
-                                    .nvidia_optical_flow_algorithm
-                                    ->getGridSize(),
                                 optical_flow_gpu_mat);
                     }
                     break;
                 case OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0:
                     {
-                        cv::cuda::GpuMat downsampled_optical_flow_gpu_mat;
                         self_private->algorithms.nvidia_optical_flow_algorithm
                             ->calc(
                                 prev_buffer_gpu_mat,
                                 current_buffer_gpu_mat,
-                                downsampled_optical_flow_gpu_mat);
-                        std::dynamic_pointer_cast<
-                            cv::cuda::NvidiaOpticalFlow_2_0>(
-                            self_private->algorithms
-                                .nvidia_optical_flow_algorithm)
-                            ->convertToFloat(
-                                downsampled_optical_flow_gpu_mat,
                                 optical_flow_gpu_mat);
                     }
                     break;
@@ -1526,7 +1507,8 @@ gst_cuda_of_init_algorithm(GstCudaOf *self, GstCudaOfAlgorithm algorithm_type)
                     cv::Size(
                         self->parent.in_info.width,
                         self->parent.in_info.height),
-                    (cv::cuda::NvidiaOpticalFlow_1_0::NVIDIA_OF_PERF_LEVEL)(
+                    static_cast<
+                        cv::cuda::NvidiaOpticalFlow_1_0::NVIDIA_OF_PERF_LEVEL>(
                         self->nvidia_performance_preset),
                     self->nvidia_enable_temporal_hints,
                     self->nvidia_enable_external_hints,
@@ -1540,13 +1522,14 @@ gst_cuda_of_init_algorithm(GstCudaOf *self, GstCudaOfAlgorithm algorithm_type)
                     cv::Size(
                         self->parent.in_info.width,
                         self->parent.in_info.height),
-                    (cv::cuda::NvidiaOpticalFlow_2_0::NVIDIA_OF_PERF_LEVEL)(
+                    static_cast<
+                        cv::cuda::NvidiaOpticalFlow_2_0::NVIDIA_OF_PERF_LEVEL>(
                         self->nvidia_performance_preset),
-                    (cv::cuda::NvidiaOpticalFlow_2_0::
-                         NVIDIA_OF_OUTPUT_VECTOR_GRID_SIZE)(
+                    static_cast<cv::cuda::NvidiaOpticalFlow_2_0::
+                                    NVIDIA_OF_OUTPUT_VECTOR_GRID_SIZE>(
                         self->nvidia_output_vector_grid_size),
-                    (cv::cuda::NvidiaOpticalFlow_2_0::
-                         NVIDIA_OF_HINT_VECTOR_GRID_SIZE)(
+                    static_cast<cv::cuda::NvidiaOpticalFlow_2_0::
+                                    NVIDIA_OF_HINT_VECTOR_GRID_SIZE>(
                         self->nvidia_hint_vector_grid_size),
                     self->nvidia_enable_temporal_hints,
                     self->nvidia_enable_external_hints,
@@ -1949,6 +1932,32 @@ static GstFlowReturn gst_cuda_of_transform(
                 = new cv::cuda::GpuMat(optical_flow_vectors);
             meta->context
                 = GST_CUDA_CONTEXT(gst_object_ref(self->parent.context));
+
+            switch(self->optical_flow_algorithm)
+            {
+                case OPTICAL_FLOW_ALGORITHM_FARNEBACK:
+                    {
+                        meta->optical_flow_vector_grid_size = 1;
+                    }
+                    break;
+                case OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0:
+                    {
+                        meta->optical_flow_vector_grid_size
+                            = OPTICAL_FLOW_OUTPUT_VECTOR_GRID_SIZE_4;
+                    }
+                    break;
+                case OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0:
+                    {
+                        meta->optical_flow_vector_grid_size
+                            = self->nvidia_output_vector_grid_size;
+                    }
+                    break;
+                default:
+                    break;
+            }
+            meta->optical_flow_vector_grid_size
+                = self->nvidia_output_vector_grid_size;
+
             gst_buffer_unref(self_private->prev_buffer);
         }
 

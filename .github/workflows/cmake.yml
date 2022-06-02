@@ -78,11 +78,13 @@ jobs:
           set -ex
           cd gst-plugins-cuda
           if nvidia-smi; then
+            nvidia-smi -L
             meson build -Dtests=enabled
           else
             meson build
           fi
           ninja -C build
           if nvidia-smi; then
+            nvidia-smi -L
             ninja test -C build
           fi

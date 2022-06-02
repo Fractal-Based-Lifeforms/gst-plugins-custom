@@ -29,6 +29,8 @@
 
 #include "cudafeaturesmatrix.h"
 #include "gstcudaof.h"
+#include "opencv2/core/mat.hpp"
+#include "opencv2/core/types.hpp"
 
 using ::testing::Values;
 
@@ -37,15 +39,35 @@ namespace
     const Poco::Path default_frames_path
         = Poco::Path(std::string(ROOT_DATA_DIRECTORY) + std::string("/frames/"))
               .absolute();
+    const std::string kernel_source_location
+        = Poco::Path(std::string(GST_CUDA_FEATURE_EXTRACTOR_KERNEL_SOURCE_PATH))
+              .absolute()
+              .toString();
+
+    struct MotionFeatures
+    {
+        uint32_t pixels = 0u;
+        uint32_t count = 0u;
+        float x0_to_x1_magnitude = 0.0f;
+        float x1_to_x0_magnitude = 0.0f;
+        float y0_to_y1_magnitude = 0.0f;
+        float y1_to_y0_magnitude = 0.0f;
+    };
+
+    struct MotionThresholds
+    {
+        float motion_threshold_squared = 4.0f;
+        float magnitude_quadrant_threshold_squared = 2.25f;
+    };
 
     class TestFeatureExtractorPipeline
     {
         private:
         GstCudaOfAlgorithm _algorithm_type = OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0;
-        guint _bus_watch_id = 0;
-        std::size_t _frame_width = 0;
-        std::size_t _frame_height = 0;
-        std::uint32_t _framerate = 0;
+        guint _bus_watch_id = 0u;
+        std::size_t _frame_width = 0u;
+        std::size_t _frame_height = 0u;
+        std::uint32_t _framerate = 0u;
         GMainLoop *_loop = nullptr;
         GstPipeline *_pipeline = nullptr;
         std::shared_ptr<std::queue<GstSample *>> _sample_queue = nullptr;
@@ -58,7 +80,7 @@ namespace
             const GstCudaOfAlgorithm algorithm_type,
             const std::shared_ptr<std::queue<GstSample *>> sample_queue)
         {
-            this->_bus_watch_id = 0;
+            this->_bus_watch_id = 0u;
             this->_loop = nullptr;
             this->_pipeline = nullptr;
 
@@ -204,8 +226,14 @@ namespace
             GstElement *cudafeatureextractor = gst_bin_get_by_name(
                 GST_BIN(this->_pipeline), "cudafeatureextractor0");
 
+            // clang-format off
             g_object_set(
-                GST_OBJECT(cudafeatureextractor), "cuda-device-id", 0, NULL);
+                GST_OBJECT(cudafeatureextractor),
+                "cuda-device-id", 0,
+                "kernel-source-location", kernel_source_location.c_str(),
+                NULL
+            );
+            // clang-format on
 
             gst_object_unref(cudafeatureextractor);
 
@@ -321,6 +349,149 @@ namespace
         {
             this->algorithm_type = this->GetParam();
         }
+
+        cv::Size_<size_t> CalculateBlockDimensions(
+            cv::Size_<size_t> frame_dimensions,
+            cv::Size_<size_t> grid_dimensions)
+        {
+            return cv::Size_<size_t>(
+                ((frame_dimensions.width + grid_dimensions.width - 1)
+                 / (grid_dimensions.width)),
+                ((frame_dimensions.height + grid_dimensions.height - 1)
+                 / (grid_dimensions.height)));
+        }
+
+        std::vector<std::vector<MotionFeatures>> ExtractFeatures(
+            const cv::Mat optical_flow_matrix,
+            cv::Size_<size_t> frame_dimensions,
+            size_t optical_flow_vector_grid_size,
+            MotionThresholds optical_flow_vector_thresholds = {4.0f, 2.25f},
+            cv::Size_<size_t> feature_grid_dimensions
+            = cv::Size_<size_t>(20, 20))
+        {
+            std::vector<std::vector<MotionFeatures>> features_grid;
+
+            cv::Size_<size_t> block_dimensions = this->CalculateBlockDimensions(
+                frame_dimensions, feature_grid_dimensions);
+
+            cv::Point_<size_t> block_index;
+
+            for(block_index.x = 0;
+                block_index.x < feature_grid_dimensions.width;
+                block_index.x++)
+            {
+                auto features_row = std::vector<MotionFeatures>();
+                for(block_index.y = 0;
+                    block_index.y < feature_grid_dimensions.height;
+                    block_index.y++)
+                {
+                    features_row.push_back(this->ExtractFeaturesForBlock(
+                        block_index,
+                        block_dimensions,
+                        optical_flow_matrix,
+                        frame_dimensions,
+                        optical_flow_vector_grid_size,
+                        optical_flow_vector_thresholds));
+                }
+
+                features_grid.push_back(features_row);
+            }
+
+            return features_grid;
+        }
+
+        MotionFeatures ExtractFeaturesForBlock(
+            cv::Point_<size_t> block_index,
+            cv::Size_<size_t> block_dimensions,
+            const cv::Mat optical_flow_matrix,
+            cv::Size_<size_t> frame_dimensions,
+            size_t optical_flow_vector_grid_size,
+            MotionThresholds flow_vector_thresholds)
+        {
+            MotionFeatures features;
+            cv::Point_<size_t> thread_index;
+
+            for(thread_index.x = 0; thread_index.x < block_dimensions.width;
+                thread_index.x++)
+            {
+                for(thread_index.y = 0;
+                    thread_index.y < block_dimensions.height;
+                    thread_index.y++)
+                {
+                    cv::Point_<size_t> frame_index(
+                        block_index.x * block_dimensions.width + thread_index.x,
+                        block_index.y * block_dimensions.height
+                            + thread_index.y);
+                    cv::Point_<size_t> optical_flow_index(
+                        frame_index.x / optical_flow_vector_grid_size,
+                        frame_index.y / optical_flow_vector_grid_size);
+
+                    if(frame_index.y < frame_dimensions.height
+                       && frame_index.x < frame_dimensions.width
+                       && optical_flow_index.y
+                              < static_cast<const unsigned int>(
+                                  optical_flow_matrix.rows)
+                       && optical_flow_index.x
+                              < static_cast<const unsigned int>(
+                                  optical_flow_matrix.cols))
+                    {
+                        cv::Vec2s flow_vector
+                            = optical_flow_matrix.at<cv::Vec2s>(
+                                optical_flow_index);
+
+                        float flow_vector_x = static_cast<float>(
+                            flow_vector[0] / static_cast<float>(1 << 5));
+                        float flow_vector_y = static_cast<float>(
+                            flow_vector[1] / static_cast<float>(1 << 5));
+
+                        float flow_vector_x_squared
+                            = flow_vector_x * flow_vector_x;
+                        float flow_vector_y_squared
+                            = flow_vector_y * flow_vector_y;
+                        float distance_squared
+                            = (flow_vector_x_squared + flow_vector_y_squared);
+
+                        features.pixels++;
+
+                        if(flow_vector_x_squared
+                           > flow_vector_thresholds
+                                 .magnitude_quadrant_threshold_squared)
+                        {
+                            if(flow_vector_x >= 0)
+                            {
+                                features.x0_to_x1_magnitude += flow_vector_x;
+                            }
+                            else
+                            {
+                                features.x1_to_x0_magnitude += -flow_vector_x;
+                            }
+                        }
+
+                        if(flow_vector_y_squared
+                           > flow_vector_thresholds
+                                 .magnitude_quadrant_threshold_squared)
+                        {
+                            if(flow_vector_y >= 0)
+                            {
+                                features.y0_to_y1_magnitude += flow_vector_y;
+                            }
+                            else
+                            {
+                                features.y1_to_y0_magnitude += -flow_vector_y;
+                            }
+                        }
+
+                        if(distance_squared
+                           > flow_vector_thresholds.motion_threshold_squared)
+                        {
+                            features.count++;
+                        }
+                    }
+                }
+            }
+
+            return features;
+        }
     };
 
     TEST_P(FeatureExtractorTestFixture, TestFeatureExtractor)
@@ -391,6 +562,88 @@ namespace
                             feature_extractor_metadata->features, nullptr);
                         EXPECT_TRUE(CUDA_IS_FEATURES_MATRIX(
                             feature_extractor_metadata->features));
+
+                        if((this->algorithm_type
+                                == OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0
+                            || this->algorithm_type
+                                   == OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0)
+                           && optical_flow_metadata != nullptr
+                           && optical_flow_metadata->optical_flow_vectors
+                                  != nullptr
+                           && feature_extractor_metadata != nullptr)
+                        {
+                            cv::Mat host_optical_flow_matrix;
+                            optical_flow_metadata->optical_flow_vectors
+                                ->download(host_optical_flow_matrix);
+
+                            // We're using the default feature-grid dimensions
+                            // and motion thresholds for now within the test
+                            // pipeline. So leave the CPU feature-extractor
+                            // with those as the defaults as well.
+                            auto features_grid = this->ExtractFeatures(
+                                host_optical_flow_matrix,
+                                cv::Size_<size_t>(1920, 1080),
+                                optical_flow_metadata
+                                    ->optical_flow_vector_grid_size);
+
+                            for(size_t ii = 0; ii < 20; ii++)
+                            {
+                                for(size_t jj = 0; jj < 20; jj++)
+                                {
+                                    auto features_cell = features_grid[jj][ii];
+                                    auto cuda_features_cell
+                                        = cuda_features_matrix_at(
+                                            feature_extractor_metadata
+                                                ->features,
+                                            jj,
+                                            ii);
+
+                                    guint32 count;
+                                    guint32 pixels;
+                                    gfloat x0_to_x1_magnitude;
+                                    gfloat x1_to_x0_magnitude;
+                                    gfloat y0_to_y1_magnitude;
+                                    gfloat y1_to_y0_magnitude;
+
+                                    g_object_get(
+                                        cuda_features_cell,
+                                        "count",
+                                        &count,
+                                        "pixels",
+                                        &pixels,
+                                        "x0-to-x1-magnitude",
+                                        &x0_to_x1_magnitude,
+                                        "x1-to-x0-magnitude",
+                                        &x1_to_x0_magnitude,
+                                        "y0-to-y1-magnitude",
+                                        &y0_to_y1_magnitude,
+                                        "y1-to-y0-magnitude",
+                                        &y1_to_y0_magnitude,
+                                        nullptr);
+
+                                    g_object_unref(cuda_features_cell);
+
+                                    EXPECT_EQ(features_cell.count, count);
+                                    EXPECT_EQ(features_cell.pixels, pixels);
+                                    EXPECT_NEAR(
+                                        features_cell.x0_to_x1_magnitude,
+                                        x0_to_x1_magnitude,
+                                        10.0f);
+                                    EXPECT_NEAR(
+                                        features_cell.x1_to_x0_magnitude,
+                                        x1_to_x0_magnitude,
+                                        10.0f);
+                                    EXPECT_NEAR(
+                                        features_cell.y0_to_y1_magnitude,
+                                        y0_to_y1_magnitude,
+                                        10.0f);
+                                    EXPECT_NEAR(
+                                        features_cell.y1_to_y0_magnitude,
+                                        y1_to_y0_magnitude,
+                                        10.0f);
+                                }
+                            }
+                        }
                     }
 
                     gst_sample_unref(sample);
