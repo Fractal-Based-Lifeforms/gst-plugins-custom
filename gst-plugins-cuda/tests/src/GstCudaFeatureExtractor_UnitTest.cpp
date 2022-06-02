@@ -428,8 +428,12 @@ namespace
 
                     if(frame_index.y < frame_dimensions.height
                        && frame_index.x < frame_dimensions.width
-                       && optical_flow_index.y < optical_flow_matrix.rows
-                       && optical_flow_index.x < optical_flow_matrix.cols)
+                       && optical_flow_index.y
+                              < static_cast<const unsigned int>(
+                                  optical_flow_matrix.rows)
+                       && optical_flow_index.x
+                              < static_cast<const unsigned int>(
+                                  optical_flow_matrix.cols))
                     {
                         cv::Vec2s flow_vector
                             = optical_flow_matrix.at<cv::Vec2s>(
