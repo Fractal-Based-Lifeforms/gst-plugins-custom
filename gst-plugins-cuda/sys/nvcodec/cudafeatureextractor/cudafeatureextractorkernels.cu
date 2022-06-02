@@ -14,6 +14,12 @@ typedef struct _MotionFeatures
     float y1_to_y0_magnitude;
 } MotionFeatures;
 
+typedef struct _FrameDimensions
+{
+    size_t width;
+    size_t height;
+} FrameDimensions;
+
 typedef struct _CUDA2DPitchedArray
 {
     void *device_ptr;
@@ -25,16 +31,15 @@ typedef struct _CUDA2DPitchedArray
 
 extern "C" __global__ void gst_cuda_feature_extractor_kernel(
     const CUDA2DPitchedArray flow_vector_matrix,
+    const FrameDimensions frame_dimensions,
     const int flow_vector_grid_size,
     const MotionThresholds flow_vector_thresholds,
     CUDA2DPitchedArray flow_features_matrix)
 {
-    unsigned int y_idx = (
-        ((blockIdx.y * blockDim.y) + threadIdx.y) / flow_vector_grid_size
-    );
-    unsigned int x_idx = (
-        ((blockIdx.x * blockDim.x) + threadIdx.x) / flow_vector_grid_size
-    );
+    unsigned int y_frame_idx = (((blockIdx.y * blockDim.y) + threadIdx.y));
+    unsigned int x_frame_idx = (((blockIdx.x * blockDim.x) + threadIdx.x));
+    unsigned int y_idx = (y_frame_idx / flow_vector_grid_size);
+    unsigned int x_idx = (x_frame_idx / flow_vector_grid_size);
 
     __shared__ unsigned int block_count;
     __shared__ unsigned int block_pixels;
@@ -52,7 +57,9 @@ extern "C" __global__ void gst_cuda_feature_extractor_kernel(
 
     __syncthreads();
 
-    if(y_idx < flow_vector_matrix.height
+    if(y_frame_idx < frame_dimensions.height
+       && x_frame_idx < frame_dimensions.width
+       && y_idx < flow_vector_matrix.height
        && x_idx < (flow_vector_matrix.width / flow_vector_matrix.elem_size))
     {
         unsigned int y_offset_index = y_idx * flow_vector_matrix.pitch;
@@ -65,9 +72,9 @@ extern "C" __global__ void gst_cuda_feature_extractor_kernel(
             case sizeof(short2):
                 {
                     short2 *flow_vectors
-                        = (short2 *)((char *)(
-                            flow_vector_matrix.device_ptr) + y_offset_index
-                        ) + x_idx;
+                        = (short2
+                               *)((char *)(flow_vector_matrix.device_ptr) + y_offset_index)
+                          + x_idx;
 
                     flow_vector_x = (float)(flow_vectors->x / (float)(1 << 5));
                     flow_vector_y = (float)(flow_vectors->y / (float)(1 << 5));
@@ -76,9 +83,9 @@ extern "C" __global__ void gst_cuda_feature_extractor_kernel(
             case sizeof(float2):
                 {
                     float2 *flow_vectors
-                        = (float2 *)((char *)(
-                            flow_vector_matrix.device_ptr) + y_offset_index
-                        ) + x_idx;
+                        = (float2
+                               *)((char *)(flow_vector_matrix.device_ptr) + y_offset_index)
+                          + x_idx;
                     flow_vector_x = flow_vectors->x;
                     flow_vector_y = flow_vectors->y;
                 }
