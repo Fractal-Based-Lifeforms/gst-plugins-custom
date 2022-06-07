@@ -62,34 +62,9 @@ static void cuda_features_cell_set_property(
 enum
 {
     /**
-     * \brief ID number for the Count feature property.
+     * \brief ID number for the SpatialMagnitude feature property.
      */
-    PROP_COUNT = 1,
-
-    /**
-     * \brief ID number for the Pixels feature property.
-     */
-    PROP_PIXELS,
-
-    /**
-     * \brief ID number for the X0ToX1Magnitude feature property.
-     */
-    PROP_X0_TO_X1_MAGNITUDE,
-
-    /**
-     * \brief ID number for the X1ToX0Magnitude feature property.
-     */
-    PROP_X1_TO_X0_MAGNITUDE,
-
-    /**
-     * \brief ID number for the Y0ToY1Magnitude feature property.
-     */
-    PROP_Y0_TO_Y1_MAGNITUDE,
-
-    /**
-     * \brief ID number for the Y1ToY0Magnitude feature property.
-     */
-    PROP_Y1_TO_Y0_MAGNITUDE,
+    PROP_SPATIAL_MAGNITUDE = 1,
 
     /**
      * \brief Number of property ID numbers in this enum.
@@ -116,68 +91,16 @@ static void cuda_features_cell_class_init(CUDAFeaturesCellClass *klass)
     gobject_class->get_property = cuda_features_cell_get_property;
     gobject_class->set_property = cuda_features_cell_set_property;
 
-    properties[PROP_COUNT] = g_param_spec_uint(
-        "count",
-        "Count",
-        "The number of optical flow vectors with a squared distance value "
-        "greater than the set threshold.",
-        0,
-        G_MAXUINT,
-        0,
-        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
-
-    properties[PROP_PIXELS] = g_param_spec_uint(
-        "pixels",
-        "Pixels",
-        "The total number of pixels contained within the matrix cell.",
-        0,
-        G_MAXUINT,
-        0,
-        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
-
-    properties[PROP_X0_TO_X1_MAGNITUDE] = g_param_spec_float(
-        "x0-to-x1-magnitude",
-        "X0 to X1 Magnitude",
-        "The cumulative absolute value of the positive X-planar values within "
-        "the optical flow vectors whose squared magnitude exceed a set "
-        "threshold.",
+    properties[PROP_SPATIAL_MAGNITUDE] = g_param_spec_float(
+        "spatial-magnitude",
+        "Spatial Magnitude",
+        "The cumulative absolute value of the positive/negative X & Y-planar "
+        "values within the optical flow vectors whose squared magnitude exceed "
+        "a set threshold.",
         0.0f,
         G_MAXFLOAT,
         0.0f,
         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
-
-    properties[PROP_X1_TO_X0_MAGNITUDE] = g_param_spec_float(
-        "x1-to-x0-magnitude",
-        "X1 to X0 Magnitude",
-        "The cumulative absolute value of the negative X-planar values within "
-        "the optical flow vectors whose squared magnitude exceed a set "
-        "threshold.",
-        0.0f,
-        G_MAXFLOAT,
-        0.0f,
-        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
-
-    properties[PROP_Y0_TO_Y1_MAGNITUDE] = g_param_spec_float(
-        "y0-to-y1-magnitude",
-        "Y0 to Y1 Magnitude",
-        "The cumulative absolute value of the positive Y-planar values within "
-        "the optical flow vectors whose squared magnitude exceed a set "
-        "threshold.",
-        0.0f,
-        G_MAXFLOAT,
-        0.0f,
-        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-    properties[PROP_Y1_TO_Y0_MAGNITUDE] = g_param_spec_float(
-        "y1-to-y0-magnitude",
-        "Y1 to Y0 Magnitude",
-        "The cumulative absolute value of the negative Y-planar values within "
-        "the optical flow vectors whose squared magnitude exceed a set "
-        "threshold.",
-        0.0f,
-        G_MAXFLOAT,
-        0.0f,
-        (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_properties(gobject_class, N_PROPERTIES, properties);
 }
@@ -195,23 +118,8 @@ static void cuda_features_cell_get_property(
 
     switch(prop_id)
     {
-        case PROP_COUNT:
-            g_value_set_uint(value, self_private->count);
-            break;
-        case PROP_PIXELS:
-            g_value_set_uint(value, self_private->pixels);
-            break;
-        case PROP_X0_TO_X1_MAGNITUDE:
-            g_value_set_float(value, self_private->x0_to_x1_magnitude);
-            break;
-        case PROP_X1_TO_X0_MAGNITUDE:
-            g_value_set_float(value, self_private->x1_to_x0_magnitude);
-            break;
-        case PROP_Y0_TO_Y1_MAGNITUDE:
-            g_value_set_float(value, self_private->y0_to_y1_magnitude);
-            break;
-        case PROP_Y1_TO_Y0_MAGNITUDE:
-            g_value_set_float(value, self_private->y1_to_y0_magnitude);
+        case PROP_SPATIAL_MAGNITUDE:
+            g_value_set_float(value, self_private->spatial_magnitude);
             break;
         default:
             g_assert_not_reached();
@@ -235,23 +143,8 @@ static void cuda_features_cell_set_property(
 
     switch(prop_id)
     {
-        case PROP_COUNT:
-            self_private->count = g_value_get_uint(value);
-            break;
-        case PROP_PIXELS:
-            self_private->pixels = g_value_get_uint(value);
-            break;
-        case PROP_X0_TO_X1_MAGNITUDE:
-            self_private->x0_to_x1_magnitude = g_value_get_float(value);
-            break;
-        case PROP_X1_TO_X0_MAGNITUDE:
-            self_private->x1_to_x0_magnitude = g_value_get_float(value);
-            break;
-        case PROP_Y0_TO_Y1_MAGNITUDE:
-            self_private->y0_to_y1_magnitude = g_value_get_float(value);
-            break;
-        case PROP_Y1_TO_Y0_MAGNITUDE:
-            self_private->y1_to_y0_magnitude = g_value_get_float(value);
+        case PROP_SPATIAL_MAGNITUDE:
+            self_private->spatial_magnitude = g_value_get_float(value);
             break;
         default:
             g_assert_not_reached();

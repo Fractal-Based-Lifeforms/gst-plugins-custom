@@ -1,6 +1,6 @@
 /**************************** Includes and Macros *****************************/
 
-#include <gst/cuda/featureextractor/cudafeaturesmatrix.h>
+#include <gst/cuda/featureextractor/cudafeaturesarray.h>
 #include <gst/cuda/featureextractor/gstmetaalgorithmfeatures.h>
 
 /*
@@ -191,7 +191,7 @@ static gboolean gst_meta_algorithm_features_transform(
 
         if(old_algorithm_features_meta->features != NULL)
         {
-            new_algorithm_features_meta->features = CUDA_FEATURES_MATRIX(
+            new_algorithm_features_meta->features = CUDA_FEATURES_ARRAY(
                 g_object_ref(old_algorithm_features_meta->features));
         }
     }

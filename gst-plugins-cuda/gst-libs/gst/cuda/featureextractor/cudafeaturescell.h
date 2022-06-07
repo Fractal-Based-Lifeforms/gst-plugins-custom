@@ -21,12 +21,7 @@ typedef struct _CUDAFeaturesCell
 
 typedef struct _CUDAFeaturesCellPrivate
 {
-    guint32 count;
-    guint32 pixels;
-    gfloat x0_to_x1_magnitude;
-    gfloat x1_to_x0_magnitude;
-    gfloat y0_to_y1_magnitude;
-    gfloat y1_to_y0_magnitude;
+    gfloat spatial_magnitude;
 } CUDAFeaturesCellPrivate;
 
 G_END_DECLS

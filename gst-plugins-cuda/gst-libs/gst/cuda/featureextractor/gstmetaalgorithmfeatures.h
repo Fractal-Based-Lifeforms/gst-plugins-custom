@@ -5,8 +5,8 @@
 #include <gmodule.h>
 #include <gst/gst.h>
 
+#include <gst/cuda/featureextractor/cudafeaturesarray.h>
 #include <gst/cuda/featureextractor/cudafeaturescell.h>
-#include <gst/cuda/featureextractor/cudafeaturesmatrix.h>
 
 G_BEGIN_DECLS
 
@@ -48,7 +48,7 @@ typedef struct _GstMetaAlgorithmFeatures
      */
     GstMeta meta;
 
-    CUDAFeaturesMatrix *features;
+    CUDAFeaturesArray *features;
 } GstMetaAlgorithmFeatures;
 
 /**
