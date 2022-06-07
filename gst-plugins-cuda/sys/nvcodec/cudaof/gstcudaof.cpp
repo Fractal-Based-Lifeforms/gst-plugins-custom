@@ -1955,8 +1955,6 @@ static GstFlowReturn gst_cuda_of_transform(
                 default:
                     break;
             }
-            meta->optical_flow_vector_grid_size
-                = self->nvidia_output_vector_grid_size;
 
             gst_buffer_unref(self_private->prev_buffer);
         }

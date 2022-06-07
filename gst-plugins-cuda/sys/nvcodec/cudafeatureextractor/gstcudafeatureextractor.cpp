@@ -36,7 +36,6 @@
 #include <glibconfig.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/cuda/featureextractor/cudafeaturesarray.h>
-#include <gst/cuda/featureextractor/cudafeaturesmatrix.h>
 #include <gst/cuda/featureextractor/gstmetaalgorithmfeatures.h>
 #include <gst/cuda/of/gstmetaopticalflow.h>
 #include <gst/gst.h>
@@ -148,10 +147,10 @@ static const gfloat default_magnitude_quadrant_threshold_squared = 2.25f;
 static const guint32 feature_grid_dimensions_multiplier_max = 400u;
 
 /**
- * \brief The number of features to aggregate into the output features array
- * per spatial feature.
+ * \brief The number of features to use per aggregation operation for creating
+ * the aggregate output features array.
  */
-static const guint32 features_per_spatial_feature = 10u;
+static const guint32 features_per_aggregation = 10u;
 
 /**
  * \brief Small test kernel to confirm that NVRTC is loaded/working.
@@ -1303,38 +1302,39 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
 
         gsize features_array_length
             = features_matrix_width * features_matrix_height;
-        gsize spatial_features_array_length
-            = ((features_array_length + features_per_spatial_feature - 1)
-               / (features_per_spatial_feature));
+        gsize aggregate_features_array_length
+            = ((features_array_length + features_per_aggregation - 1)
+               / (features_per_aggregation));
 
         features_array = CUDA_FEATURES_ARRAY(
-            cuda_features_array_new(spatial_features_array_length));
+            cuda_features_array_new(aggregate_features_array_length));
 
         /**
          * In order to speed things up, the features array is reduced from 400
          * values to 40 (by default) using aggregation with the MAX aggregation
          * operator.
          */
-        for(gsize spatial_idx = 0; spatial_idx < spatial_features_array_length;
-            spatial_idx++)
+        for(gsize aggregate_idx = 0;
+            aggregate_idx < aggregate_features_array_length;
+            aggregate_idx++)
         {
             float maximum_spatial_magnitude = 0.0f;
 
             for(gsize idx = 0;
-                idx < features_per_spatial_feature
-                && (spatial_idx * features_per_spatial_feature + idx)
+                idx < features_per_aggregation
+                && (aggregate_idx * features_per_aggregation + idx)
                        < features_array_length;
                 idx++)
             {
                 maximum_spatial_magnitude = MAX(
                     maximum_spatial_magnitude,
                     host_features_matrix
-                        [(spatial_idx * features_per_spatial_feature + idx)]
+                        [(aggregate_idx * features_per_aggregation + idx)]
                             .spatial_magnitude);
             }
 
             CUDAFeaturesCell *features_cell
-                = cuda_features_array_at(features_array, spatial_idx);
+                = cuda_features_array_at(features_array, aggregate_idx);
 
             g_object_set(
                 features_cell,
