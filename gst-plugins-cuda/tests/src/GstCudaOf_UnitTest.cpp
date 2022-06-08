@@ -438,7 +438,7 @@ namespace
 
         {
             bool is_first_frame = true;
-            EXPECT_EQ(sample_queue->size(), 2);
+            EXPECT_EQ(sample_queue->size(), 2u);
 
             while(!sample_queue->empty())
             {
@@ -695,7 +695,7 @@ namespace
 
         {
             bool is_first_frame = true;
-            EXPECT_EQ(sample_queue->size(), 2);
+            EXPECT_EQ(sample_queue->size(), 2u);
 
             while(!sample_queue->empty())
             {

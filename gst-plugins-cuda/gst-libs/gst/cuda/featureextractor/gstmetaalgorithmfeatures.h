@@ -48,7 +48,7 @@ typedef struct _GstMetaAlgorithmFeatures
      */
     GstMeta meta;
 
-    CUDAFeaturesArray *features;
+    GArray *features;
 } GstMetaAlgorithmFeatures;
 
 /**

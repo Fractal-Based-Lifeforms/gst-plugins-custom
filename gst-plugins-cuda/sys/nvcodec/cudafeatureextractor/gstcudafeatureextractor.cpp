@@ -35,7 +35,6 @@
 #include <glib-object.h>
 #include <glibconfig.h>
 #include <gst/base/gstbasetransform.h>
-#include <gst/cuda/featureextractor/cudafeaturesarray.h>
 #include <gst/cuda/featureextractor/gstmetaalgorithmfeatures.h>
 #include <gst/cuda/of/gstmetaopticalflow.h>
 #include <gst/gst.h>
@@ -525,61 +524,6 @@ class GstCudaException : public std::logic_error
     }
 };
 
-/**
- * \brief A structure containing the threshold values needed for feature
- * extraction.
- *
- * \notes It may be noticed that this structure is also redefined within the
- * CUDA kernel source-code as well. This is due to a limitation with using
- * `#include` due to how NVRTC has been setup for the NVCodec plugins.
- *
- * \notes As a result, it is heavily recommneded that this structure should NOT
- * BE TOUCHED under any circumstances; otherwise it could lead to
- * hard-to-detect faults with the CUDA kernels.
- */
-typedef struct _MotionThresholds
-{
-    /**
-     * \brief The threshold for the X0ToX1Magnitude, X1ToX0Magnitude,
-     * Y0ToY1Magnitude and Y1ToY0Magnitude features.
-     *
-     * \details This represents the threshold that must be exceeded for the
-     * squared vector value before it will qualify for the X0ToX1Magnitude,
-     * X1ToX0Magnitude, Y0ToY1Magnitude and Y1ToY0Magnitude features. In
-     * particular:
-     *   - If X ^ 2 exceeds the threshold, and the original X value is
-     *   positive, its value is added to the X0ToX1Magnitude feature.
-     *   - If Y ^ 2 exceeds the threshold, and the original Y value is
-     *   positive, its value is added to the Y0ToY1Magnitude feature.
-     *   - If X ^ 2 exceeds the threshold, and the original X value is
-     *   negative, its value is added to the X1ToX0Magnitude feature.
-     *   - If Y ^ 2 exceeds the threshold, and the original Y value is
-     *   negative, its value is added to the Y1ToY0Magnitude feature.
-     */
-    float magnitude_quadrant_threshold_squared;
-} MotionThresholds;
-
-/**
- * \brief A structure containing the spatial feature values accumulated from the
- * X & Y planar magnitudes.
- *
- * \notes It may be noticed that this structure is also redefined within the
- * CUDA kernel source-code as well. This is due to a limitation with using
- * `#include` due to how NVRTC has been setup for the NVCodec plugins.
- *
- * \notes As a result, it is heavily recommneded that this structure should NOT
- * BE TOUCHED under any circumstances; otherwise it could lead to
- * hard-to-detect faults with the CUDA kernels.
- */
-typedef struct _SpatialMotionFeatures
-{
-    /**
-     * \brief The combined value of the positive/negative X-planar and Y-planar
-     * values as a single feature.
-     */
-    float spatial_magnitude;
-} SpatialMotionFeatures;
-
 /*************************** Function Declarations ****************************/
 
 /**
@@ -622,10 +566,10 @@ static void gst_cuda_feature_extractor_dispose(GObject *gobject);
  * \brief Extracts features from optical flow metadata.
  *
  * \details Using the loaded feature-extractor and feature-consolidator
- * kernels, a set of 6 features are extracted from the optical flow matrix
- * stored in the optical flow metadata. The features are copied from GPU to
- * host memory, then stored within a CUDAFeaturesArray GObject instance to be
- * stored within a GstMetaAlgorithmFeatures metadata instance.
+ * kernels, the spatial (magnitude) features are extracted from the optical
+ * flow matrix stored in the optical flow metadata. The features are copied
+ * from GPU to host memory, then stored within a GArray instance to be stored
+ * within a GstMetaAlgorithmFeatures metadata instance.
  *
  * \param[in] self A GstCudaFeatureExtractor GObject instance to get various
  * parameters and handles needed to perform the feature extraction procedure.
@@ -633,11 +577,11 @@ static void gst_cuda_feature_extractor_dispose(GObject *gobject);
  * \param[in] optical_flow_metadata The GstMetaOpticalFlow instance to extract
  * the optical flow matrix from.
  *
- * \returns A reference to a CUDAFeaturesArray GObject instance.
- * Alternatively, NULL will be returned if an error occurs during the
+ * \returns A reference to a GArray instance. Alternatively, NULL will be
+ * returned if an error occurs during the
  * feature-extraction/feature-consolidation procedures.
  */
-static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
+static GArray *gst_cuda_feature_extractor_extract_features(
     GstCudaFeatureExtractor *self,
     const GstVideoFrame *frame,
     const GstMetaOpticalFlow *optical_flow_metadata);
@@ -864,7 +808,12 @@ G_DEFINE_TYPE_WITH_PRIVATE(
 
 /**************************** Function Definitions ****************************/
 
-static inline guint calculate_dimension(guint size, guint divisor)
+static inline guint ceil_div_guint(guint size, guint divisor)
+{
+    return ((size + divisor - 1) / (divisor));
+}
+
+static inline gsize ceil_div_gsize(gsize size, gsize divisor)
 {
     return ((size + divisor - 1) / (divisor));
 }
@@ -887,9 +836,9 @@ static gsize gst_cuda_feature_extractor_calculate_dimensions_multiplier(
          *
          * - J.O.
          */
-        guint32 block_dimension_x = calculate_dimension(
+        guint32 block_dimension_x = ceil_div_guint(
             optical_flow_matrix_width, features_matrix_width * ii);
-        guint32 block_dimension_y = calculate_dimension(
+        guint32 block_dimension_y = ceil_div_guint(
             optical_flow_matrix_height, features_matrix_height * ii);
 
         /*
@@ -1113,7 +1062,7 @@ static void gst_cuda_feature_extractor_dispose(GObject *gobject)
     }
 }
 
-static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
+static GArray *gst_cuda_feature_extractor_extract_features(
     GstCudaFeatureExtractor *self,
     const GstVideoFrame *frame,
     const GstMetaOpticalFlow *optical_flow_metadata)
@@ -1121,7 +1070,7 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
     GstCudaFeatureExtractorPrivate *self_private
         = gst_cuda_feature_extractor_get_instance_private_typesafe(self);
 
-    CUDAFeaturesArray *features_array = NULL;
+    GArray *features_array = NULL;
 
     const cv::cuda::GpuMat *optical_flow_matrix
         = optical_flow_metadata->optical_flow_vectors;
@@ -1149,8 +1098,8 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
     const gsize features_matrix_width = self->features_matrix_width;
     const gsize features_matrix_height = self->features_matrix_height;
     const gsize features_matrix_pitch
-        = self->features_matrix_width * sizeof(SpatialMotionFeatures);
-    const gsize features_matrix_elem_size = sizeof(SpatialMotionFeatures);
+        = self->features_matrix_width * sizeof(float);
+    const gsize features_matrix_elem_size = sizeof(float);
 
     const gsize optical_flow_matrix_width = optical_flow_matrix->cols;
     const gsize optical_flow_matrix_height = optical_flow_matrix->rows;
@@ -1184,12 +1133,10 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
            optical_flow_matrix_height,
            optical_flow_matrix_elem_size};
 
-    std::vector<SpatialMotionFeatures> host_features_matrix(
+    std::vector<float> host_features_matrix(
         features_matrix_width * features_matrix_height);
 
-    MotionThresholds gpu_features_thresholds;
-    gpu_features_thresholds.magnitude_quadrant_threshold_squared
-        = self->magnitude_quadrant_threshold_squared;
+    float gpu_features_threshold = self->magnitude_quadrant_threshold_squared;
 
     try
     {
@@ -1198,9 +1145,9 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
         guint original_grid_dimension_y
             = features_matrix_height * dimensions_multiplier;
 
-        guint original_block_dimension_x = calculate_dimension(
-            frame_dimensions.width, original_grid_dimension_x);
-        guint original_block_dimension_y = calculate_dimension(
+        guint original_block_dimension_x
+            = ceil_div_guint(frame_dimensions.width, original_grid_dimension_x);
+        guint original_block_dimension_y = ceil_div_guint(
             frame_dimensions.height, original_grid_dimension_y);
 
         if(!gst_cuda_result(CuMemAllocPitch(
@@ -1218,7 +1165,7 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
             = {&gpu_optical_flow_matrix,
                &frame_dimensions,
                (gpointer)(&optical_flow_vector_grid_size),
-               &gpu_features_thresholds,
+               &gpu_features_threshold,
                &gpu_features_matrix};
 
         if(!gst_cuda_result(CuLaunchKernel(
@@ -1287,11 +1234,10 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
 
         feature_memcpy_args.dstMemoryType = CU_MEMORYTYPE_HOST;
         feature_memcpy_args.dstHost = host_features_matrix.data();
-        feature_memcpy_args.dstPitch
-            = sizeof(SpatialMotionFeatures) * features_matrix_width;
+        feature_memcpy_args.dstPitch = sizeof(float) * features_matrix_width;
 
         feature_memcpy_args.WidthInBytes
-            = sizeof(SpatialMotionFeatures) * features_matrix_width;
+            = sizeof(float) * features_matrix_width;
         feature_memcpy_args.Height = features_matrix_height;
 
         if(!gst_cuda_result(CuMemcpy2D(&feature_memcpy_args)))
@@ -1303,22 +1249,24 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
         gsize features_array_length
             = features_matrix_width * features_matrix_height;
         gsize aggregate_features_array_length
-            = ((features_array_length + features_per_aggregation - 1)
-               / (features_per_aggregation));
+            = ceil_div_gsize(features_array_length, features_per_aggregation);
 
-        features_array = CUDA_FEATURES_ARRAY(
-            cuda_features_array_new(aggregate_features_array_length));
+        features_array = g_array_sized_new(
+            FALSE, TRUE, sizeof(gfloat), aggregate_features_array_length);
 
         /**
-         * In order to speed things up, the features array is reduced from 400
-         * values to 40 (by default) using aggregation with the MAX aggregation
-         * operator.
+         * In addition to the feature extraction performed by the CUDA
+         * kernel(s), the features will be aggregated in groups of 10 (by
+         * default) using the MAX aggregation operator.
+         *
+         * Due to CUDA limitations (limited ability to define critical
+         * sections), this is done on the CPU instead.
          */
         for(gsize aggregate_idx = 0;
             aggregate_idx < aggregate_features_array_length;
             aggregate_idx++)
         {
-            float maximum_spatial_magnitude = 0.0f;
+            gfloat maximum_spatial_magnitude = 0.0f;
 
             for(gsize idx = 0;
                 idx < features_per_aggregation
@@ -1329,21 +1277,10 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
                 maximum_spatial_magnitude = MAX(
                     maximum_spatial_magnitude,
                     host_features_matrix
-                        [(aggregate_idx * features_per_aggregation + idx)]
-                            .spatial_magnitude);
+                        [aggregate_idx * features_per_aggregation + idx]);
             }
 
-            CUDAFeaturesCell *features_cell
-                = cuda_features_array_at(features_array, aggregate_idx);
-
-            g_object_set(
-                features_cell,
-                // clang-format off
-                "spatial-magnitude", maximum_spatial_magnitude,
-                // clang-format on
-                NULL);
-
-            g_object_unref(features_cell);
+            g_array_append_val(features_array, maximum_spatial_magnitude);
         }
 
         if(consolidated_gpu_features_matrix.device_ptr != NULL)
@@ -1378,7 +1315,7 @@ static CUDAFeaturesArray *gst_cuda_feature_extractor_extract_features(
 
         if(features_array != NULL)
         {
-            g_object_unref(features_array);
+            g_array_unref(features_array);
             features_array = NULL;
         }
     }
@@ -1560,12 +1497,8 @@ static gboolean gst_cuda_feature_extractor_output_features_json(
         std::ofstream algorithm_features_file
             = open_output_metadata_file(self, frame, ".json");
 
-        guint32 feature_array_length = 0;
-        g_object_get(
-            algorithm_features_metadata->features,
-            "features-array-length",
-            &feature_array_length,
-            NULL);
+        guint32 feature_array_length
+            = algorithm_features_metadata->features->len;
 
         rapidjson::Document document;
         document.SetObject();
@@ -1591,26 +1524,10 @@ static gboolean gst_cuda_feature_extractor_output_features_json(
 
         for(guint32 idx = 0; idx < feature_array_length; idx++)
         {
-            CUDAFeaturesCell *cell = cuda_features_array_at(
-                algorithm_features_metadata->features, idx);
-
-            if(cell != NULL)
-            {
-                gfloat spatial_magnitude = 0.0f;
-
-                g_object_get(
-                    cell, "spatial-magnitude", &spatial_magnitude, NULL);
-
-                spatial_magnitude_array.PushBack(
-                    rapidjson::Value(spatial_magnitude), allocator);
-
-                gst_object_unref(cell);
-            }
-            else
-            {
-                spatial_magnitude_array.PushBack(
-                    rapidjson::Value(0.0f), allocator);
-            }
+            gfloat spatial_magnitude = g_array_index(
+                algorithm_features_metadata->features, gfloat, idx);
+            spatial_magnitude_array.PushBack(
+                rapidjson::Value(spatial_magnitude), allocator);
         }
 
         features.AddMember(
@@ -1980,7 +1897,7 @@ static GstFlowReturn gst_cuda_feature_extractor_transform_frame(
                     self, in_frame, optical_flow_metadata);
             }
 
-            CUDAFeaturesArray *features_array
+            GArray *features_array
                 = gst_cuda_feature_extractor_extract_features(
                     self, in_frame, optical_flow_metadata);
 

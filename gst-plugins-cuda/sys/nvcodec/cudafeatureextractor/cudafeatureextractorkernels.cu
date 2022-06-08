@@ -13,21 +13,11 @@ typedef struct _FrameDimensions
     size_t height;
 } FrameDimensions;
 
-typedef struct _MotionThresholds
-{
-    float magnitude_quadrant_threshold_squared;
-} MotionThresholds;
-
-typedef struct _SpatialMotionFeatures
-{
-    float spatial_magnitude;
-} SpatialMotionFeatures;
-
 extern "C" __global__ void gst_cuda_feature_extractor_kernel(
     const CUDA2DPitchedArray flow_vector_matrix,
     const FrameDimensions frame_dimensions,
     const int flow_vector_grid_size,
-    const MotionThresholds flow_vector_thresholds,
+    const float flow_vector_threshold,
     CUDA2DPitchedArray flow_features_matrix)
 {
     unsigned int y_frame_idx = (((blockIdx.y * blockDim.y) + threadIdx.y));
@@ -81,8 +71,7 @@ extern "C" __global__ void gst_cuda_feature_extractor_kernel(
         float flow_vector_x_squared = flow_vector_x * flow_vector_x;
         float flow_vector_y_squared = flow_vector_y * flow_vector_y;
 
-        if(flow_vector_x_squared
-           > flow_vector_thresholds.magnitude_quadrant_threshold_squared)
+        if(flow_vector_x_squared > flow_vector_threshold)
         {
             if(flow_vector_x >= 0)
             {
@@ -94,8 +83,7 @@ extern "C" __global__ void gst_cuda_feature_extractor_kernel(
             }
         }
 
-        if(flow_vector_y_squared
-           > flow_vector_thresholds.magnitude_quadrant_threshold_squared)
+        if(flow_vector_y_squared > flow_vector_threshold)
         {
             if(flow_vector_y >= 0)
             {
@@ -114,17 +102,17 @@ extern "C" __global__ void gst_cuda_feature_extractor_kernel(
     {
         unsigned int y_block_offset_index
             = blockIdx.y * flow_features_matrix.pitch;
-        SpatialMotionFeatures *flow_spatial_features
-            = (SpatialMotionFeatures
+        float *flow_spatial_feature
+            = (float
                    *)((char *)(flow_features_matrix.device_ptr) + y_block_offset_index)
               + blockIdx.x;
-        flow_spatial_features->spatial_magnitude = block_spatial_magnitude;
+        *flow_spatial_feature = block_spatial_magnitude;
     }
 }
 
 extern "C" __global__ void gst_cuda_feature_consolidation_kernel(
-    const CUDA2DPitchedArray flow_spatial_features_matrix,
-    CUDA2DPitchedArray consolidated_flow_spatial_features_matrix)
+    const CUDA2DPitchedArray flow_spatial_feature_matrix,
+    CUDA2DPitchedArray consolidated_flow_spatial_feature_matrix)
 {
     unsigned int y_idx = ((blockIdx.y * blockDim.y) + threadIdx.y);
     unsigned int x_idx = ((blockIdx.x * blockDim.x) + threadIdx.x);
@@ -135,21 +123,18 @@ extern "C" __global__ void gst_cuda_feature_consolidation_kernel(
 
     __syncthreads();
 
-    if(y_idx < flow_spatial_features_matrix.height
-       && x_idx
-              < (flow_spatial_features_matrix.width
-                 / sizeof(SpatialMotionFeatures)))
+    if(y_idx < flow_spatial_feature_matrix.height
+       && x_idx < (flow_spatial_feature_matrix.width / sizeof(float)))
     {
-        unsigned int y_offset_index
-            = y_idx * flow_spatial_features_matrix.pitch;
-        SpatialMotionFeatures *original_flow_spatial_features
-            = ((SpatialMotionFeatures
-                    *)((char *)(flow_spatial_features_matrix.device_ptr) + y_offset_index)
+        unsigned int y_offset_index = y_idx * flow_spatial_feature_matrix.pitch;
+        float *original_flow_spatial_feature
+            = ((float
+                    *)((char *)(flow_spatial_feature_matrix.device_ptr) + y_offset_index)
                + x_idx);
 
         atomicAdd(
             (float *)(&consolidated_block_spatial_magnitude),
-            original_flow_spatial_features->spatial_magnitude);
+            *original_flow_spatial_feature);
     }
 
     __syncthreads();
@@ -158,12 +143,11 @@ extern "C" __global__ void gst_cuda_feature_consolidation_kernel(
     {
 
         unsigned int y_block_offset_index
-            = blockIdx.y * consolidated_flow_spatial_features_matrix.pitch;
-        SpatialMotionFeatures *flow_spatial_features
-            = (SpatialMotionFeatures
-                   *)((char *)(consolidated_flow_spatial_features_matrix.device_ptr) + y_block_offset_index)
+            = blockIdx.y * consolidated_flow_spatial_feature_matrix.pitch;
+        float *flow_spatial_feature
+            = (float
+                   *)((char *)(consolidated_flow_spatial_feature_matrix.device_ptr) + y_block_offset_index)
               + blockIdx.x;
-        flow_spatial_features->spatial_magnitude
-            = consolidated_block_spatial_magnitude;
+        *flow_spatial_feature = consolidated_block_spatial_magnitude;
     }
 }

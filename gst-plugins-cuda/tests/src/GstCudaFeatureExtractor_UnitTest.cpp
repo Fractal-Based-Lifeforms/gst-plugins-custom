@@ -17,6 +17,7 @@
 #include <gst/gstcapsfeatures.h>
 #include <gst/gstmessage.h>
 #include <gst/gstpipeline.h>
+#include <gst/video/video-format.h>
 #include <gtest/gtest-param-test.h>
 #include <gtest/gtest.h>
 #include <opencv2/core/base.hpp>
@@ -37,24 +38,26 @@ using ::testing::Values;
 
 namespace
 {
+    constexpr auto default_cuda_device_id = 0u;
+    const cv::Size_<size_t> default_features_matrix_size(20u, 20u);
     const Poco::Path default_frames_path
         = Poco::Path(std::string(ROOT_DATA_DIRECTORY) + std::string("/frames/"))
               .absolute();
-    constexpr std::uint32_t features_per_aggregation = 10u;
+    constexpr auto default_magnitude_quadrant_threshold_squared = 2.25f;
+    constexpr auto features_per_aggregation = 10u;
     const std::string kernel_source_location
         = Poco::Path(std::string(GST_CUDA_FEATURE_EXTRACTOR_KERNEL_SOURCE_PATH))
               .absolute()
               .toString();
 
-    struct SpatialMotionFeatures
-    {
-        float spatial_magnitude = 0.0f;
-    };
+    const cv::Size_<size_t> test_frame_size(1920u, 1080u);
+    constexpr auto test_framerate = 5u;
 
-    struct MotionThresholds
+    template<typename T>
+    T ceil_div_int(T value, T divisor)
     {
-        float magnitude_quadrant_threshold_squared = 2.25f;
-    };
+        return (value + divisor - 1) / divisor;
+    }
 
     class TestFeatureExtractorPipeline
     {
@@ -105,41 +108,15 @@ namespace
         {
             auto *that = static_cast<TestFeatureExtractorPipeline *>(user_data);
 
-            if(GST_MESSAGE_TYPE(message) == GST_MESSAGE_EOS)
+            if(GST_MESSAGE_TYPE(message) == GST_MESSAGE_EOS
+               || GST_MESSAGE_TYPE(message) == GST_MESSAGE_ERROR)
             {
                 if(g_main_loop_is_running(that->_loop))
                 {
                     g_main_loop_quit(that->_loop);
                 }
 
-                that->_bus_watch_id = 0;
-                return FALSE;
-            }
-            else if(GST_MESSAGE_TYPE(message) == GST_MESSAGE_ERROR)
-            {
-                GError *error = NULL;
-                gchararray details = NULL;
-
-                gst_message_parse_error(message, &error, &details);
-
-                if(details != NULL)
-                {
-                    g_free(details);
-                    details = NULL;
-                }
-
-                if(error != NULL)
-                {
-                    g_error_free(error);
-                    error = NULL;
-                }
-
-                if(g_main_loop_is_running(that->_loop))
-                {
-                    g_main_loop_quit(that->_loop);
-                }
-
-                that->_bus_watch_id = 0;
+                that->_bus_watch_id = 0u;
                 return FALSE;
             }
 
@@ -162,7 +139,7 @@ namespace
             // clang-format off
             GstCaps *multifilesrc_caps = gst_caps_new_simple("video/x-raw",
                 "format", G_TYPE_STRING, "NV12",
-                "framerate", GST_TYPE_FRACTION, this->_framerate, 1,
+                "framerate", GST_TYPE_FRACTION, this->_framerate, 1u,
                 "height", G_TYPE_INT, this->_frame_height,
                 "width", G_TYPE_INT, this->_frame_width,
                 NULL);
@@ -177,8 +154,8 @@ namespace
                     .absolute()
                     .toString()
                     .c_str(),
-                "start-index", 1,
-                "stop-index", 2,
+                "start-index", 1u,
+                "stop-index", 2u,
                 NULL);
             // clang-format on
 
@@ -194,8 +171,8 @@ namespace
             // clang-format off
             g_object_set(
                 GST_OBJECT(rawvideoparse),
-                "format",  23,
-                "framerate", this->_framerate, 1,
+                "format",  GST_VIDEO_FORMAT_NV12,
+                "framerate", this->_framerate, 1u,
                 "height", this->_frame_height,
                 "width", this->_frame_width,
                 NULL
@@ -211,7 +188,7 @@ namespace
             // clang-format off
             g_object_set(
                 GST_OBJECT(cudaof),
-                "cuda-device-id", 0,
+                "cuda-device-id", default_cuda_device_id,
                 "optical-flow-algorithm", this->_algorithm_type,
                 NULL
             );
@@ -225,7 +202,9 @@ namespace
             // clang-format off
             g_object_set(
                 GST_OBJECT(cudafeatureextractor),
-                "cuda-device-id", 0,
+                "cuda-device-id", default_cuda_device_id,
+                "features-matrix-width", default_features_matrix_size.width,
+                "features-matrix-height", default_features_matrix_size.height,
                 "kernel-source-location", kernel_source_location.c_str(),
                 NULL
             );
@@ -295,7 +274,7 @@ namespace
 
             gst_element_set_state(GST_ELEMENT(this->_pipeline), GST_STATE_NULL);
 
-            if(this->_bus_watch_id != 0)
+            if(this->_bus_watch_id != 0u)
             {
                 gst_bus_remove_watch(bus);
             }
@@ -331,370 +310,296 @@ namespace
             }
         }
     };
+}
 
-    class FeatureExtractorTestFixture
-        : public ::testing::TestWithParam<GstCudaOfAlgorithm>
+class FeatureExtractorTestFixture
+    : public ::testing::TestWithParam<GstCudaOfAlgorithm>
+{
+    protected:
+    GstCudaOfAlgorithm algorithm_type;
+
+    public:
+
+    protected:
+    void SetUp() override
     {
-        protected:
-        GstCudaOfAlgorithm algorithm_type;
+        this->algorithm_type = this->GetParam();
+    }
 
-        public:
+    cv::Size_<size_t> CalculateBlockDimensions(
+        cv::Size_<size_t> frame_dimensions,
+        cv::Size_<size_t> grid_dimensions)
+    {
+        return cv::Size_<size_t>(
+            ceil_div_int<size_t>(frame_dimensions.width, grid_dimensions.width),
+            ceil_div_int<size_t>(
+                frame_dimensions.height, grid_dimensions.height));
+    }
 
-        protected:
-        void SetUp() override
+    std::vector<float> ExtractFeatures(
+        const cv::Mat optical_flow_matrix,
+        cv::Size_<size_t> frame_dimensions,
+        size_t optical_flow_vector_grid_size,
+        float optical_flow_vector_threshold
+        = default_magnitude_quadrant_threshold_squared,
+        cv::Size_<size_t> feature_grid_dimensions
+        = default_features_matrix_size)
+    {
+        std::vector<std::vector<float>> features_grid;
+
+        cv::Size_<size_t> block_dimensions = this->CalculateBlockDimensions(
+            frame_dimensions, feature_grid_dimensions);
+
+        cv::Point_<size_t> block_index;
+
+        for(block_index.x = 0; block_index.x < feature_grid_dimensions.width;
+            block_index.x++)
         {
-            this->algorithm_type = this->GetParam();
-        }
-
-        cv::Size_<size_t> CalculateBlockDimensions(
-            cv::Size_<size_t> frame_dimensions,
-            cv::Size_<size_t> grid_dimensions)
-        {
-            return cv::Size_<size_t>(
-                ((frame_dimensions.width + grid_dimensions.width - 1)
-                 / (grid_dimensions.width)),
-                ((frame_dimensions.height + grid_dimensions.height - 1)
-                 / (grid_dimensions.height)));
-        }
-
-        std::vector<SpatialMotionFeatures> ExtractFeatures(
-            const cv::Mat optical_flow_matrix,
-            cv::Size_<size_t> frame_dimensions,
-            size_t optical_flow_vector_grid_size,
-            MotionThresholds optical_flow_vector_thresholds = {2.25f},
-            cv::Size_<size_t> feature_grid_dimensions
-            = cv::Size_<size_t>(20, 20))
-        {
-            std::vector<std::vector<SpatialMotionFeatures>> features_grid
-                = this->ExtractSpatialFeatures(
+            auto features_row = std::vector<float>();
+            for(block_index.y = 0;
+                block_index.y < feature_grid_dimensions.height;
+                block_index.y++)
+            {
+                features_row.push_back(this->ExtractFeaturesForBlock(
+                    block_index,
+                    block_dimensions,
                     optical_flow_matrix,
                     frame_dimensions,
                     optical_flow_vector_grid_size,
-                    optical_flow_vector_thresholds,
-                    feature_grid_dimensions);
-
-            std::vector<SpatialMotionFeatures> features_array;
-
-            for(std::size_t y = 0; y < feature_grid_dimensions.height; y++)
-            {
-                for(std::size_t x = 0; x < feature_grid_dimensions.width; x++)
-                {
-                    features_array.push_back(features_grid[x][y]);
-                }
+                    optical_flow_vector_threshold));
             }
 
-            std::size_t aggregations_array_size
-                = (features_array.size() + (features_per_aggregation - 1))
-                  / features_per_aggregation;
-
-            std::vector<SpatialMotionFeatures> aggregations_array(
-                aggregations_array_size);
-
-            for(size_t aggregate_idx = 0;
-                aggregate_idx < aggregations_array_size;
-                aggregate_idx++)
-            {
-                float maximum_spatial_magnitude = 0.0f;
-
-                for(size_t idx = 0;
-                    idx < features_per_aggregation
-                    && (aggregate_idx * features_per_aggregation + idx)
-                           < features_array.size();
-                    idx++)
-                {
-                    maximum_spatial_magnitude = std::max(
-                        maximum_spatial_magnitude,
-                        features_array
-                            [aggregate_idx * features_per_aggregation + idx]
-                                .spatial_magnitude);
-                }
-
-                aggregations_array[aggregate_idx].spatial_magnitude
-                    = maximum_spatial_magnitude;
-            }
-
-            return aggregations_array;
+            features_grid.push_back(features_row);
         }
 
-        std::vector<std::vector<SpatialMotionFeatures>> ExtractSpatialFeatures(
-            const cv::Mat optical_flow_matrix,
-            cv::Size_<size_t> frame_dimensions,
-            size_t optical_flow_vector_grid_size,
-            MotionThresholds optical_flow_vector_thresholds = {2.25f},
-            cv::Size_<size_t> feature_grid_dimensions
-            = cv::Size_<size_t>(20, 20))
+        std::vector<float> features_array;
+
+        for(std::size_t y = 0; y < feature_grid_dimensions.height; y++)
         {
-            std::vector<std::vector<SpatialMotionFeatures>> features_grid;
-
-            cv::Size_<size_t> block_dimensions = this->CalculateBlockDimensions(
-                frame_dimensions, feature_grid_dimensions);
-
-            cv::Point_<size_t> block_index;
-
-            for(block_index.x = 0;
-                block_index.x < feature_grid_dimensions.width;
-                block_index.x++)
+            for(std::size_t x = 0; x < feature_grid_dimensions.width; x++)
             {
-                auto features_row = std::vector<SpatialMotionFeatures>();
-                for(block_index.y = 0;
-                    block_index.y < feature_grid_dimensions.height;
-                    block_index.y++)
-                {
-                    features_row.push_back(this->ExtractFeaturesForBlock(
-                        block_index,
-                        block_dimensions,
-                        optical_flow_matrix,
-                        frame_dimensions,
-                        optical_flow_vector_grid_size,
-                        optical_flow_vector_thresholds));
-                }
-
-                features_grid.push_back(features_row);
+                features_array.push_back(features_grid[x][y]);
             }
-
-            return features_grid;
         }
 
-        SpatialMotionFeatures ExtractFeaturesForBlock(
-            cv::Point_<size_t> block_index,
-            cv::Size_<size_t> block_dimensions,
-            const cv::Mat optical_flow_matrix,
-            cv::Size_<size_t> frame_dimensions,
-            size_t optical_flow_vector_grid_size,
-            MotionThresholds flow_vector_thresholds)
+        std::size_t aggregations_array_size = ceil_div_int<size_t>(
+            features_array.size(), features_per_aggregation);
+
+        std::vector<float> aggregations_array(aggregations_array_size);
+
+        for(size_t aggregate_idx = 0; aggregate_idx < aggregations_array_size;
+            aggregate_idx++)
         {
-            SpatialMotionFeatures features;
-            cv::Point_<size_t> thread_index;
+            float maximum_spatial_magnitude = 0.0f;
 
-            for(thread_index.x = 0; thread_index.x < block_dimensions.width;
-                thread_index.x++)
+            for(size_t idx = 0;
+                idx < features_per_aggregation
+                && (aggregate_idx * features_per_aggregation + idx)
+                       < features_array.size();
+                idx++)
             {
-                for(thread_index.y = 0;
-                    thread_index.y < block_dimensions.height;
-                    thread_index.y++)
-                {
-                    cv::Point_<size_t> frame_index(
-                        block_index.x * block_dimensions.width + thread_index.x,
-                        block_index.y * block_dimensions.height
-                            + thread_index.y);
-                    cv::Point_<size_t> optical_flow_index(
-                        frame_index.x / optical_flow_vector_grid_size,
-                        frame_index.y / optical_flow_vector_grid_size);
+                maximum_spatial_magnitude = std::max(
+                    maximum_spatial_magnitude,
+                    features_array
+                        [aggregate_idx * features_per_aggregation + idx]);
+            }
 
-                    if(frame_index.y < frame_dimensions.height
-                       && frame_index.x < frame_dimensions.width
-                       && optical_flow_index.y
-                              < static_cast<const unsigned int>(
-                                  optical_flow_matrix.rows)
-                       && optical_flow_index.x
-                              < static_cast<const unsigned int>(
-                                  optical_flow_matrix.cols))
+            aggregations_array[aggregate_idx] = maximum_spatial_magnitude;
+        }
+
+        return aggregations_array;
+    }
+
+    float ExtractFeaturesForBlock(
+        cv::Point_<size_t> block_index,
+        cv::Size_<size_t> block_dimensions,
+        const cv::Mat optical_flow_matrix,
+        cv::Size_<size_t> frame_dimensions,
+        size_t optical_flow_vector_grid_size,
+        float flow_vector_threshold)
+    {
+        float spatial_magnitude = 0.0f;
+        cv::Point_<size_t> thread_index;
+
+        for(thread_index.x = 0; thread_index.x < block_dimensions.width;
+            thread_index.x++)
+        {
+            for(thread_index.y = 0; thread_index.y < block_dimensions.height;
+                thread_index.y++)
+            {
+                cv::Point_<size_t> frame_index(
+                    block_index.x * block_dimensions.width + thread_index.x,
+                    block_index.y * block_dimensions.height + thread_index.y);
+                cv::Point_<size_t> optical_flow_index(
+                    frame_index.x / optical_flow_vector_grid_size,
+                    frame_index.y / optical_flow_vector_grid_size);
+
+                if(frame_index.y < frame_dimensions.height
+                   && frame_index.x < frame_dimensions.width
+                   && optical_flow_index.y < static_cast<const unsigned int>(
+                          optical_flow_matrix.rows)
+                   && optical_flow_index.x < static_cast<const unsigned int>(
+                          optical_flow_matrix.cols))
+                {
+                    cv::Vec2s flow_vector
+                        = optical_flow_matrix.at<cv::Vec2s>(optical_flow_index);
+
+                    float flow_vector_x = static_cast<float>(
+                        flow_vector[0] / static_cast<float>(1 << 5));
+                    float flow_vector_y = static_cast<float>(
+                        flow_vector[1] / static_cast<float>(1 << 5));
+
+                    float flow_vector_x_squared = flow_vector_x * flow_vector_x;
+                    float flow_vector_y_squared = flow_vector_y * flow_vector_y;
+
+                    if(flow_vector_x_squared > flow_vector_threshold)
                     {
-                        cv::Vec2s flow_vector
-                            = optical_flow_matrix.at<cv::Vec2s>(
-                                optical_flow_index);
+                        spatial_magnitude += std::abs(flow_vector_x);
+                    }
 
-                        float flow_vector_x = static_cast<float>(
-                            flow_vector[0] / static_cast<float>(1 << 5));
-                        float flow_vector_y = static_cast<float>(
-                            flow_vector[1] / static_cast<float>(1 << 5));
-
-                        float flow_vector_x_squared
-                            = flow_vector_x * flow_vector_x;
-                        float flow_vector_y_squared
-                            = flow_vector_y * flow_vector_y;
-
-                        if(flow_vector_x_squared
-                           > flow_vector_thresholds
-                                 .magnitude_quadrant_threshold_squared)
-                        {
-                            if(flow_vector_x >= 0)
-                            {
-                                features.spatial_magnitude += flow_vector_x;
-                            }
-                            else
-                            {
-                                features.spatial_magnitude += -flow_vector_x;
-                            }
-                        }
-
-                        if(flow_vector_y_squared
-                           > flow_vector_thresholds
-                                 .magnitude_quadrant_threshold_squared)
-                        {
-                            if(flow_vector_y >= 0)
-                            {
-                                features.spatial_magnitude += flow_vector_y;
-                            }
-                            else
-                            {
-                                features.spatial_magnitude += -flow_vector_y;
-                            }
-                        }
+                    if(flow_vector_y_squared > flow_vector_threshold)
+                    {
+                        spatial_magnitude += std::abs(flow_vector_y);
                     }
                 }
             }
-
-            return features;
         }
-    };
 
-    TEST_P(FeatureExtractorTestFixture, TestFeatureExtractor)
+        return spatial_magnitude;
+    }
+};
+
+TEST_P(FeatureExtractorTestFixture, TestFeatureExtractor)
+{
+    auto sample_queue = std::make_shared<std::queue<GstSample *>>();
+
+    GEnumClass *klass
+        = G_ENUM_CLASS(g_type_class_ref(GST_TYPE_CUDA_OF_ALGORITHM));
+
+    switch(this->algorithm_type)
     {
-        auto sample_queue = std::make_shared<std::queue<GstSample *>>();
+        case OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0:
+            ASSERT_NE(g_enum_get_value_by_nick(klass, "nvidia-1.0"), nullptr);
+            break;
+        case OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0:
+            ASSERT_NE(g_enum_get_value_by_nick(klass, "nvidia-2.0"), nullptr);
+            break;
+        case OPTICAL_FLOW_ALGORITHM_FARNEBACK:
+            ASSERT_NE(g_enum_get_value_by_nick(klass, "farneback"), nullptr);
+            break;
+        default:
+            throw std::logic_error(
+                "We somehow received an algorithm type that isn't "
+                "supported or should not be tested here.");
+            break;
+    }
 
-        GEnumClass *klass
-            = G_ENUM_CLASS(g_type_class_ref(GST_TYPE_CUDA_OF_ALGORITHM));
+    {
+        TestFeatureExtractorPipeline pipeline(
+            test_frame_size.width,
+            test_frame_size.height,
+            test_framerate,
+            this->algorithm_type,
+            sample_queue);
+        pipeline.Run();
+    }
 
-        switch(this->algorithm_type)
+    {
+        bool is_first_frame = true;
+        EXPECT_EQ(sample_queue->size(), 2u);
+
+        while(!sample_queue->empty())
         {
-            case OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0:
-                ASSERT_NE(
-                    g_enum_get_value_by_nick(klass, "nvidia-1.0"), nullptr);
-                break;
-            case OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0:
-                ASSERT_NE(
-                    g_enum_get_value_by_nick(klass, "nvidia-2.0"), nullptr);
-                break;
-            case OPTICAL_FLOW_ALGORITHM_FARNEBACK:
-                ASSERT_NE(
-                    g_enum_get_value_by_nick(klass, "farneback"), nullptr);
-                break;
-            default:
-                throw std::logic_error(
-                    "We somehow received an algorithm type that isn't "
-                    "supported or should not be tested here.");
-                break;
-        }
+            GstSample *sample = sample_queue->front();
 
-        {
-            TestFeatureExtractorPipeline pipeline(
-                1920, 1080, 5, this->algorithm_type, sample_queue);
-            pipeline.Run();
-        }
+            EXPECT_NE(sample, nullptr);
 
-        {
-            bool is_first_frame = true;
-            EXPECT_EQ(sample_queue->size(), 2u);
-
-            while(!sample_queue->empty())
+            if(sample != NULL)
             {
-                GstSample *sample = sample_queue->front();
+                GstBuffer *buffer = gst_sample_get_buffer(sample);
 
-                EXPECT_NE(sample, nullptr);
-
-                if(sample != NULL)
-                {
-                    GstBuffer *buffer = gst_sample_get_buffer(sample);
-
-                    /*
+                /*
                      * The first frame won't have any optical flow or
                      * feature-extractor metadata, so there's no point checking
                      * it.
                      *
                      * - J.O.
                      */
-                    if(!is_first_frame)
+                if(!is_first_frame)
+                {
+                    GstMetaOpticalFlow *optical_flow_metadata
+                        = GST_META_OPTICAL_FLOW_GET(buffer);
+                    EXPECT_NE(optical_flow_metadata, nullptr);
+
+                    GstMetaAlgorithmFeatures *feature_extractor_metadata
+                        = GST_META_ALGORITHM_FEATURES_GET(buffer);
+                    EXPECT_NE(feature_extractor_metadata, nullptr);
+                    EXPECT_NE(feature_extractor_metadata->features, nullptr);
+
+                    if((this->algorithm_type
+                            == OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0
+                        || this->algorithm_type
+                               == OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0)
+                       && optical_flow_metadata != nullptr
+                       && optical_flow_metadata->optical_flow_vectors != nullptr
+                       && feature_extractor_metadata != nullptr)
                     {
-                        GstMetaOpticalFlow *optical_flow_metadata
-                            = GST_META_OPTICAL_FLOW_GET(buffer);
-                        EXPECT_NE(optical_flow_metadata, nullptr);
+                        cv::Mat host_optical_flow_matrix;
+                        optical_flow_metadata->optical_flow_vectors->download(
+                            host_optical_flow_matrix);
 
-                        GstMetaAlgorithmFeatures *feature_extractor_metadata
-                            = GST_META_ALGORITHM_FEATURES_GET(buffer);
-                        EXPECT_NE(feature_extractor_metadata, nullptr);
-                        EXPECT_NE(
-                            feature_extractor_metadata->features, nullptr);
-                        EXPECT_TRUE(CUDA_IS_FEATURES_ARRAY(
-                            feature_extractor_metadata->features));
+                        // We're using the default feature-grid dimensions
+                        // and motion thresholds for now within the test
+                        // pipeline. So leave the CPU feature-extractor
+                        // with those as the defaults as well.
+                        auto aggregate_features_array = this->ExtractFeatures(
+                            host_optical_flow_matrix,
+                            test_frame_size,
+                            optical_flow_metadata
+                                ->optical_flow_vector_grid_size);
 
-                        if((this->algorithm_type
-                                == OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0
-                            || this->algorithm_type
-                                   == OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0)
-                           && optical_flow_metadata != nullptr
-                           && optical_flow_metadata->optical_flow_vectors
-                                  != nullptr
-                           && feature_extractor_metadata != nullptr)
+                        std::size_t expected_array_size = ceil_div_int<size_t>(
+                            default_features_matrix_size.area(),
+                            features_per_aggregation);
+
+                        gsize features_array_length
+                            = feature_extractor_metadata->features->len;
+
+                        EXPECT_EQ(
+                            aggregate_features_array.size(),
+                            expected_array_size);
+                        EXPECT_EQ(features_array_length, expected_array_size);
+
+                        for(size_t idx = 0; idx < expected_array_size; idx++)
                         {
-                            cv::Mat host_optical_flow_matrix;
-                            optical_flow_metadata->optical_flow_vectors
-                                ->download(host_optical_flow_matrix);
-
-                            // We're using the default feature-grid dimensions
-                            // and motion thresholds for now within the test
-                            // pipeline. So leave the CPU feature-extractor
-                            // with those as the defaults as well.
-                            auto aggregate_features_array
-                                = this->ExtractFeatures(
-                                    host_optical_flow_matrix,
-                                    cv::Size_<size_t>(1920, 1080),
-                                    optical_flow_metadata
-                                        ->optical_flow_vector_grid_size);
-
-                            std::size_t expected_array_size
-                                = (20 * 20 + features_per_aggregation - 1)
-                                  / features_per_aggregation;
-
-                            gsize features_array_length = 0u;
-
-                            g_object_get(
+                            auto host_spatial_magnitude
+                                = aggregate_features_array[idx];
+                            gfloat gpu_spatial_magnitude = g_array_index(
                                 feature_extractor_metadata->features,
-                                "features-array-length",
-                                &features_array_length,
-                                nullptr);
+                                gfloat,
+                                idx);
 
-                            EXPECT_EQ(
-                                aggregate_features_array.size(),
-                                expected_array_size);
-                            EXPECT_EQ(
-                                features_array_length, expected_array_size);
-
-                            for(size_t idx = 0;
-                                idx
-                                < ((20 * 20 + features_per_aggregation - 1)
-                                   / features_per_aggregation);
-                                idx++)
-                            {
-                                auto features_cell
-                                    = aggregate_features_array[idx];
-                                auto cuda_features_cell
-                                    = cuda_features_array_at(
-                                        feature_extractor_metadata->features,
-                                        idx);
-
-                                gfloat spatial_magnitude;
-
-                                g_object_get(
-                                    cuda_features_cell,
-                                    "spatial-magnitude",
-                                    &spatial_magnitude,
-                                    nullptr);
-
-                                g_object_unref(cuda_features_cell);
-
-                                EXPECT_NEAR(
-                                    features_cell.spatial_magnitude,
-                                    spatial_magnitude,
-                                    10.0f);
-                            }
+                            EXPECT_NEAR(
+                                host_spatial_magnitude,
+                                gpu_spatial_magnitude,
+                                10.0f);
                         }
                     }
-
-                    gst_sample_unref(sample);
                 }
 
-                sample_queue->pop();
-                is_first_frame = false;
+                gst_sample_unref(sample);
             }
+
+            sample_queue->pop();
+            is_first_frame = false;
         }
     }
-
-    INSTANTIATE_TEST_SUITE_P(
-        FeatureExtractorTests,
-        FeatureExtractorTestFixture,
-        Values(
-            OPTICAL_FLOW_ALGORITHM_FARNEBACK,
-            OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0,
-            OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0));
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    FeatureExtractorTests,
+    FeatureExtractorTestFixture,
+    Values(
+        OPTICAL_FLOW_ALGORITHM_FARNEBACK,
+        OPTICAL_FLOW_ALGORITHM_NVIDIA_1_0,
+        OPTICAL_FLOW_ALGORITHM_NVIDIA_2_0));

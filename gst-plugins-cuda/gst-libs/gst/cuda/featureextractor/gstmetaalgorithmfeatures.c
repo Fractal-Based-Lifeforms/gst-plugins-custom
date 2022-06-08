@@ -159,7 +159,7 @@ static void gst_meta_algorithm_features_free(GstMeta *meta, GstBuffer *buf)
 
     if(algorithm_features_meta->features != NULL)
     {
-        g_object_unref(algorithm_features_meta->features);
+        g_array_unref(algorithm_features_meta->features);
         algorithm_features_meta->features = NULL;
     }
 }
@@ -191,8 +191,8 @@ static gboolean gst_meta_algorithm_features_transform(
 
         if(old_algorithm_features_meta->features != NULL)
         {
-            new_algorithm_features_meta->features = CUDA_FEATURES_ARRAY(
-                g_object_ref(old_algorithm_features_meta->features));
+            new_algorithm_features_meta->features
+                = g_array_ref(old_algorithm_features_meta->features);
         }
     }
     else
