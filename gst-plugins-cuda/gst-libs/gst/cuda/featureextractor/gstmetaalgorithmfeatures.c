@@ -1,6 +1,5 @@
 /**************************** Includes and Macros *****************************/
 
-#include <gst/cuda/featureextractor/cudafeaturesarray.h>
 #include <gst/cuda/featureextractor/gstmetaalgorithmfeatures.h>
 
 /*

@@ -5,9 +5,6 @@
 #include <gmodule.h>
 #include <gst/gst.h>
 
-#include <gst/cuda/featureextractor/cudafeaturesarray.h>
-#include <gst/cuda/featureextractor/cudafeaturescell.h>
-
 G_BEGIN_DECLS
 
 #define GST_META_ALGORITHM_FEATURES_API_TYPE \
