@@ -29,7 +29,6 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
 
-#include "cudafeaturesarray.h"
 #include "gstcudaof.h"
 #include "opencv2/core/mat.hpp"
 #include "opencv2/core/types.hpp"
