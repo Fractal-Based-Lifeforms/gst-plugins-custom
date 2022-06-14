@@ -14,14 +14,10 @@ gst_cuda_sources = files([
   'nvcodec/gstcudanvrtc.c',
   'nvcodec/gstcudautils.c',
   'nvcodec/gstnvrtcloader.c',
-  'featureextractor/cudafeaturescell.c',
-  'featureextractor/cudafeaturesmatrix.c',
   'featureextractor/gstmetaalgorithmfeatures.c',
 ])
 
 gst_cuda_featureextractor_headers = files([
-  'featureextractor/cudafeaturescell.h',
-  'featureextractor/cudafeaturesmatrix.h',
   'featureextractor/gstmetaalgorithmfeatures.h',
 ])
 gst_cuda_nvcodec_headers = files([

@@ -21,8 +21,6 @@ if not get_option('tests').disabled() and gtest_dep.found()
   librt = cc.find_library('rt', required: true)
   
   unittest_sources = [
-  'src/CUDAFeaturesCell_UnitTest.cpp',
-  'src/CUDAFeaturesMatrix_UnitTest.cpp',
   'src/GstCudaFeatureExtractor_UnitTest.cpp',
   'src/GstCudaOf_UnitTest.cpp',
   'src/UnitTests.cpp',

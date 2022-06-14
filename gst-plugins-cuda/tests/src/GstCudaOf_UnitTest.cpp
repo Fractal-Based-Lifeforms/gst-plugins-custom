@@ -438,13 +438,13 @@ namespace
 
         {
             bool is_first_frame = true;
-            EXPECT_TRUE(sample_queue->size() == 2);
+            EXPECT_EQ(sample_queue->size(), 2u);
 
             while(!sample_queue->empty())
             {
                 GstSample *sample = sample_queue->front();
 
-                EXPECT_TRUE(sample != NULL);
+                EXPECT_NE(sample, nullptr);
 
                 if(sample != NULL)
                 {
@@ -460,7 +460,7 @@ namespace
                     {
                         GstMetaOpticalFlow *optical_flow_metadata
                             = GST_META_OPTICAL_FLOW_GET(buffer);
-                        EXPECT_TRUE(optical_flow_metadata != NULL);
+                        EXPECT_NE(optical_flow_metadata, nullptr);
 
                         if(optical_flow_metadata != NULL)
                         {
@@ -483,12 +483,12 @@ namespace
                              *
                              * - J.O.
                              */
-                            EXPECT_TRUE(
-                                optical_flow_vectors.rows
-                                == gstcuda_optical_flow_vectors.rows);
-                            EXPECT_TRUE(
-                                optical_flow_vectors.cols
-                                == gstcuda_optical_flow_vectors.cols);
+                            EXPECT_EQ(
+                                optical_flow_vectors.rows,
+                                gstcuda_optical_flow_vectors.rows);
+                            EXPECT_EQ(
+                                optical_flow_vectors.cols,
+                                gstcuda_optical_flow_vectors.cols);
 
                             for(int ii = 0;
                                 ii < gstcuda_optical_flow_vectors.rows;
@@ -581,9 +581,7 @@ namespace
             cv::cuda::GpuMat second_frame_gpu_mat = this->ExtractFrameFromFile(
                 second_frame_file, frame_width, frame_height, num_of_channels);
             this->algorithm->calc(
-                first_frame_gpu_mat,
-                second_frame_gpu_mat,
-                output_vectors);
+                first_frame_gpu_mat, second_frame_gpu_mat, output_vectors);
 
             return output_vectors;
         }
@@ -697,13 +695,13 @@ namespace
 
         {
             bool is_first_frame = true;
-            EXPECT_TRUE(sample_queue->size() == 2);
+            EXPECT_EQ(sample_queue->size(), 2u);
 
             while(!sample_queue->empty())
             {
                 GstSample *sample = sample_queue->front();
 
-                EXPECT_TRUE(sample != NULL);
+                EXPECT_NE(sample, nullptr);
 
                 if(sample != NULL)
                 {
@@ -719,7 +717,7 @@ namespace
                     {
                         GstMetaOpticalFlow *optical_flow_metadata
                             = GST_META_OPTICAL_FLOW_GET(buffer);
-                        EXPECT_TRUE(optical_flow_metadata != NULL);
+                        EXPECT_NE(optical_flow_metadata, nullptr);
 
                         if(optical_flow_metadata != NULL)
                         {
@@ -742,12 +740,12 @@ namespace
                              *
                              * - J.O.
                              */
-                            EXPECT_TRUE(
-                                optical_flow_vectors.rows
-                                == gstcuda_optical_flow_vectors.rows);
-                            EXPECT_TRUE(
-                                optical_flow_vectors.cols
-                                == gstcuda_optical_flow_vectors.cols);
+                            EXPECT_EQ(
+                                optical_flow_vectors.rows,
+                                gstcuda_optical_flow_vectors.rows);
+                            EXPECT_EQ(
+                                optical_flow_vectors.cols,
+                                gstcuda_optical_flow_vectors.cols);
 
                             for(int ii = 0;
                                 ii < gstcuda_optical_flow_vectors.rows;
