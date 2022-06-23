@@ -1,0 +1,51 @@
+name: Build debian package
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/debian.yml
+  push:
+    paths:
+      - .github/workflows/debian.yml
+
+jobs:
+  debian:
+    name: Build debian image
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install debian dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update -y
+          apt-get install -y --no-install-recommends \
+              ca-certificates \
+              gnupg2 \
+              grep \
+            && true
+          apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED7108895311FB59
+          echo deb http://ppa.launchpad.net/jayvdb/experimental/ubuntu jammy main > /etc/apt/sources.list.d/ppas.list
+
+          # Install developer tools
+          apt-get update
+          apt-get install --no-install-recommends -yV \
+              build-essential \
+              dh-sequence-gir \
+              devscripts \
+              equivs \
+              git-buildpackage \
+            && true
+
+      - name: Install package dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          mk-build-deps -irt 'apt-get --no-install-recommends -yV' debian/control
+
+      - name: Build image
+        run: |
+          set -ex
+          # TODO: dynamic branch name
+          gbp buildpackage --git-ignore-new --git-force-create --git-upstream-tree=SLOPPY --git-no-pristine-tar --git-debian-branch=add-debian-packaging
