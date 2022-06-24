@@ -1,0 +1,2 @@
+debian/tmp/usr/lib/*/gstreamer-1.0/libgstnvcodec.so
+debian/tmp/usr/share/gstreamer-1.0/CUDA/cudafeatureextractorkernels.cu

@@ -1,0 +1,97 @@
+Source: gst-plugins-cuda1.0
+Section: libs
+Priority: optional
+Maintainer: John Vandenberg <jayvdb@gmail.com>
+XSBC-Original-Maintainer: Maintainers of GStreamer CUDA package <jayvdb@gmail.com>
+Uploaders: Sebastian Dröge <jayvdb@gmail.com>
+Build-Depends: debhelper,
+               debhelper-compat (= 13),
+               dh-sequence-gir,
+               dpkg-dev (>= 1.15.1),
+               pkg-config (>= 0.11.0),
+               meson (>= 0.59),
+               libglib2.0-dev (>= 2.56),
+               libgstreamer1.0-dev (>= 1.20.1),
+               gstreamer1.0-plugins-bad (>= 1.20.0),
+               libgstreamer-plugins-base1.0-dev (>= 1.20.1),
+               gstreamer1.0-plugins-base (>= 1.20.1),
+               gstreamer1.0-plugins-good (>= 1.20.1),
+               gstreamer1.0-libav (>= 1.20.1),
+               libgstreamer1.0-0 (>= 1.20.1),
+               libopencv-dev (>= 3.0.0) [!i386],
+               libopencv-contrib-cuda-dev,
+               bison,
+               cmake,
+               flex,
+               gcc-10,
+               g++-10,
+               git,
+               libffi7,
+               libffi8,
+               libgmock-dev,
+               libgtest-dev,
+               libpoco-dev,
+               libpocofoundation80,
+               make,
+               ninja-build,
+               nvidia-cuda-toolkit,
+               python3-pip,
+               rapidjson-dev,
+               python3
+Standards-Version: 4.5.0
+Vcs-Git: https://github.com/Fractal-Based-Lifeforms/gst-plugins-custom.git
+Vcs-Browser: https://github.com/Fractal-Based-Lifeforms/gst-plugins-custom/
+Homepage: https://github.com/Fractal-Based-Lifeforms/gst-plugins-custom/
+
+Package: gstreamer1.0-plugins-cuda
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+         gstreamer1.0-plugins-bad (>= 1.20.0),
+         gstreamer1.0-plugins-base (>= 1.20.0),
+         gstreamer1.0-plugins-good (>= 1.20.0),
+         libgstreamer-plugins-cuda1.0-0 (= ${binary:Version}),
+Provides: ${gstreamer:Provides}
+XB-GStreamer-Version: ${gstreamer:Version}
+XB-GStreamer-Elements: ${gstreamer:Elements}
+XB-GStreamer-URI-Sources: ${gstreamer:URISources}
+XB-GStreamer-URI-Sinks: ${gstreamer:URISinks}
+XB-GStreamer-Encoders: ${gstreamer:Encoders}
+XB-GStreamer-Decoders: ${gstreamer:Decoders}
+Description: GStreamer CUDA plugins
+ GStreamer is a streaming media framework, based on graphs of filters
+ which operate on media data.  Applications using this library can do
+ anything from real-time sound processing to playing videos, and just
+ about anything else media-related.  Its plugin-based architecture means
+ that new data types or processing capabilities can be added simply by
+ installing new plug-ins.
+ .
+ GStreamer CUDA Plug-ins ...
+
+Package: libgstreamer-plugins-cuda1.0-0
+Architecture: any
+Section: libs
+Priority: optional
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Description: GStreamer cuda plugins
+ GStreamer Cuda Plug-ins Libs ....
+
+Package: libgstreamer-plugins-cuda1.0-dev
+Architecture: any
+Multi-Arch: same
+Section: libdevel
+Priority: optional
+Depends: ${misc:Depends},
+         libgstreamer-plugins-cuda1.0-0 (= ${binary:Version}),
+         libgstreamer-opencv1.0-0 (= ${binary:Version}) [!i386],
+         libgstreamer1.0-dev,
+         libgstreamer-plugins-base1.0-dev,
+         libgstreamer-plugins-good1.0-dev,
+         gir1.2-gst-plugins-cuda-1.0 (= ${binary:Version}),
+         libopencv-dev (>= 2.3.0) [!i386]
+Description: GStreamer development files for libraries from the CUDA plugin.

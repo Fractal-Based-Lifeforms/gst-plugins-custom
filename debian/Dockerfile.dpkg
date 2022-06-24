@@ -1,0 +1,42 @@
+# First build this docker image
+#   (cd debian && docker build -t gst-plugin-custom-builder -f ./Dockerfile.dpkg .)
+# Create tarball
+#    git archive --format=tar.gz -o ../gst-plugins-cuda1.0_0.1.0.orig.tar.gz add-debian-packaging
+# Then run the following:
+#   docker run -it --rm -u $(id -u):$(id -g) -v /etc/group:/etc/group:ro -v /etc/passwd:/etc/passwd:ro \
+#        -v $(pwd)/..:/usr/src/ -w /usr/src/gst-plugins-custom \
+#        gst-plugin-custom-builder \
+#        dpkg-buildpackage -us -uc
+
+#       (todo: add gpg signing support)
+
+#FROM debian:sid
+FROM ubuntu:jammy
+
+# Optionally, add incoming to sources.list
+#RUN echo 'deb http://incoming.debian.org/debian-buildd buildd-unstable main contrib non-free' > /etc/apt/sources.list.d/incoming.list
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg2  \
+    && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ED7108895311FB59 \
+    && echo deb http://ppa.launchpad.net/jayvdb/experimental/ubuntu jammy main >> /etc/apt/sources.list.d/ppas.list
+
+# Add deb-src to sources.list
+RUN find /etc/apt/sources.list* -type f -exec sed -i 'p; s/^deb /deb-src /' '{}' +
+
+# Install developer tools
+RUN apt-get update \
+ && apt-get install --no-install-recommends -yV \
+    build-essential \
+    dh-sequence-gir \
+    devscripts \
+    equivs
+
+# Install the build deps for _this_ package
+COPY control /tmp/control
+RUN mk-build-deps -irt 'apt-get --no-install-recommends -yV' /tmp/control \
+ && rm /tmp/control

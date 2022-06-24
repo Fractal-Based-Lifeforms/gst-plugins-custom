@@ -11,7 +11,7 @@ on:
       - .github/workflows/docker.yml
 
 jobs:
-  jammy:
+  docker:
     name: Build docker image
     runs-on: ubuntu-latest
     steps:

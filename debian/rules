@@ -1,0 +1,51 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/default.mk
+
+export HOME=$(CURDIR)/fake-home
+
+# debian package version
+version=$(shell dpkg-parsechangelog | grep ^Version: | cut -d ' ' -f 2)
+# upstream version
+gst_version=$(shell echo $(version) | cut -d '-' -f 1)
+
+CFLAGS += -Wno-error
+CXXFLAGS += -Wno-error
+LDFLAGS += -Wl,-z,defs -Wl,-O1 -Wl,--as-needed
+
+# Let's decide the package name and url depending on the distribution
+DISTRO = "$(shell dpkg-vendor --query vendor)"
+
+GST_PACKAGE_NAME := "GStreamer CUDA Plugins (unknown Debian derivative)"
+GST_PACKAGE_ORIGIN="https://github.com/Fractal-Based-Lifeforms/gst-plugins-custom"
+
+conf_flags = --libdir=lib/$(DEB_HOST_MULTIARCH) --libexecdir=lib/$(DEB_HOST_MULTIARCH)/gstreamer1.0
+conf_flags += -Dpackage-name=$(GST_PACKAGE_NAME) -Dpackage-origin=$(GST_PACKAGE_ORIGIN)
+
+%:
+	dh $@ --with gir --buildsystem=meson --sourcedirectory=gst-plugins-cuda
+
+override_dh_auto_configure:
+	dh_auto_configure -- --default-library shared $(conf_flags)
+
+override_dh_auto_clean:
+	rm -rf $(CURDIR)/fake-home
+	dh_auto_clean
+
+override_dh_auto_test:
+	dh_auto_test || true
+
+override_dh_strip:
+	dh_strip --dbgsym-migration='gstreamer1.0-plugins-cuda-dbg (<< 1.17.1-1~)'
+
+override_dh_makeshlibs:
+	dh_makeshlibs -plibgstreamer-plugins-cuda1.0-0 -X "/usr/lib/$(DEB_HOST_MULTIARCH)/gstreamer-1.0" -V 'libgstreamer-plugins-cuda1.0-0 (>= $(gst_version))' -- -c4
+
+override_dh_install:
+	dh_install $(NO_I386_ARGS)
+
+	mkdir -p $(CURDIR)/fake-home
+	HOME=$(CURDIR)/fake-home \
+	LD_LIBRARY_PATH=debian/libgstreamer-plugins-cuda1.0-0/usr/lib/$(DEB_HOST_MULTIARCH):$(LD_LIBRARY_PATH) \
+	    dh_gstscancodecs
+	rm -rf $(CURDIR)/fake-home

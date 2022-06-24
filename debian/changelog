@@ -1,0 +1,5 @@
+gst-plugins-cuda1.0 (0.1.0-jv1) unstable; urgency=low
+
+  * Initial release.
+
+ -- John Vandenberg <jayvdb@gmail.com>  Thu, 23 Jun 2022 08:54:33 +0800
